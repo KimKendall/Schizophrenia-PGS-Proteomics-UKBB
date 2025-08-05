@@ -1,0 +1,197 @@
+## Cleaning Phenotypic Data, Kimberley Kendall, 6 April 2025
+# This document describes the code used to clean the UKBB phenotypic data for the schizophrenia proteomics project.
+
+# Read in required data, merge required files (not shown)
+phenodata <- read_csv("phenodata.csv")
+confounder_data <- read_csv("confounder_data.csv")
+
+# Sex - tidy up, convert to binary, 0 = female, 1 = male
+class(phenotypes$p31)
+sex <- ifelse(phenotypes$p31 == "Male", 1, 0)
+sex_count_orig <- table(phenodata$p31)
+print(sex_count_orig)
+sex_count_binary <- table(sex)
+print(sex_count_binary)
+
+# Age
+class(phenotypes$p21003_i0)
+age <- phenotypes$p21003_i0
+summary(age)
+
+# Create age squared variable
+age_squared <- age^2
+summary(age_squared)
+
+# Plate
+plate <- phenotypes$p30901_i0
+
+# Psychiatric diagnoses
+# Schizophrenia diagnoses, make binary - 1 = case, 0 = unaffected
+class(phenotypes$p130874)
+scz_firstocc_date <- phenotypes$p130874
+class(phenotypes$p130875)
+scz_firstocc_source <- phenotypes$p130875
+
+scz_firstocc_source <- case_when(
+  scz_firstocc_source == "Death register only" ~ 1,
+  scz_firstocc_source == "Death register and other source(s)" ~ 2,
+  scz_firstocc_source == "Primary care only" ~ 3,
+  scz_firstocc_source == "Primary care and other source(s)" ~ 4,
+  scz_firstocc_source == "Hospital admissions data only" ~ 5,
+  scz_firstocc_source == "Hospital admissions data and other source(s)" ~6,
+  scz_firstocc_source == "Self-report only" ~7,
+  scz_firstocc_source == "Self-report and other source(s)" ~8,
+  TRUE ~ NA_real_ # For any uncaught values, use NA_real_ for numeric NAs.
+)
+
+scz_binary <- case_when(scz_firstocc_source >= 1 ~1, TRUE ~ 0)
+
+scz_firstocc_source_count <- table(scz_firstocc_source)
+print(scz_firstocc_source_count)
+
+scz_source_original_count <- table(phenodata$p130875)
+print(scz_source_original_count)
+
+scz_binary_count <- table(scz_binary)
+print(scz_binary_count)
+
+print(scz_firstocc_source_count)
+
+# Schizotypal disorder - No one with this diagnosis.
+
+# Persistent delusional disorder, make binary - 1 = case, 0 = unaffected
+class(phenotypes$p130878)
+pdd_firstocc_date <- phenotypes$p130878
+class(phenotypes$p130879)
+pdd_firstocc_source <- phenotypes$p130879
+
+pdd_firstocc_source <- case_when(
+  pdd_firstocc_source == "Death register only" ~ 1,
+  pdd_firstocc_source == "Death register and other source(s)" ~ 2,
+  pdd_firstocc_source == "Primary care only" ~ 3,
+  pdd_firstocc_source == "Primary care and other source(s)" ~ 4,
+  pdd_firstocc_source == "Hospital admissions data only" ~ 5,
+  pdd_firstocc_source == "Hospital admissions data and other source(s)" ~6,
+  pdd_firstocc_source == "Self-report only" ~7,
+  pdd_firstocc_source == "Self-report and other source(s)" ~8,
+  TRUE ~ NA_real_ # For any uncaught values, use NA_real_ for numeric NAs.
+)
+
+pdd_firstocc_source_count <- table(pdd_firstocc_source)
+print(pdd_firstocc_source_count)
+pdd_source_original_count <- table(phenodata$p130879)
+print(pdd_source_original_count)
+
+pdd_binary <- case_when(pdd_firstocc_source >= 1 ~1, TRUE ~ 0)
+
+pdd_binary_count <- table(pdd_binary)
+print(pdd_binary_count)
+print(pdd_firstocc_source_count)
+
+# Acute and transient psychotic disorders - no one with this diagnosis
+
+# Induced delusional disorder - no one with this diagnosis
+
+# Schizoaffective disorder, make binary - 1 = case, 0 = unaffected
+class(phenotypes$p130884)
+scza_firstocc_date <- phenotypes$p130884
+class(phenotypes$p130885)
+scza_firstocc_source <- phenotypes$p130885
+
+scza_firstocc_source <- case_when(
+  scza_firstocc_source == "Death register only" ~ 1,
+  scza_firstocc_source == "Death register and other source(s)" ~ 2,
+  scza_firstocc_source == "Primary care only" ~ 3,
+  scza_firstocc_source == "Primary care and other source(s)" ~ 4,
+  scza_firstocc_source == "Hospital admissions data only" ~ 5,
+  scza_firstocc_source == "Hospital admissions data and other source(s)" ~6,
+  scza_firstocc_source == "Self-report only" ~7,
+  scza_firstocc_source == "Self-report and other source(s)" ~8,
+  TRUE ~ NA_real_ # For any uncaught values, use NA_real_ for numeric NAs.
+)
+
+scza_firstocc_source_count <- table(scza_firstocc_source)
+print(scza_firstocc_source_count)
+scza_source_original_count <- table(phenodata$p130885)
+print(scza_source_original_count)
+
+scza_binary <- case_when(scza_firstocc_source >= 1 ~1, TRUE ~ 0)
+
+scza_binary_count <- table(scza_binary)
+print(scza_binary_count)
+print(scza_firstocc_source_count)
+
+# Other nonorganic psychotic disorders - no one with this diagnosis.
+
+# Unspecified nonorganic psychosis, make binary - 1 = case, 0 = unaffected
+class(phenotypes$p130888)
+psychnos_firstocc_date <- phenotypes$p130888
+class(phenotypes$p130889)
+psychnos_firstocc_source <- phenotypes$p130889
+
+psychnos_firstocc_source <- case_when(
+  psychnos_firstocc_source == "Death register only" ~ 1,
+  psychnos_firstocc_source == "Death register and other source(s)" ~ 2,
+  psychnos_firstocc_source == "Primary care only" ~ 3,
+  psychnos_firstocc_source == "Primary care and other source(s)" ~ 4,
+  psychnos_firstocc_source == "Hospital admissions data only" ~ 5,
+  psychnos_firstocc_source == "Hospital admissions data and other source(s)" ~6,
+  psychnos_firstocc_source == "Self-report only" ~7,
+  psychnos_firstocc_source == "Self-report and other source(s)" ~8,
+  TRUE ~ NA_real_ # For any uncaught values, use NA_real_ for numeric NAs.
+)
+
+psychnos_firstocc_source_count <- table(psychnos_firstocc_source)
+print(psychnos_firstocc_source_count)
+psychnos_source_original_count <- table(phenodata$p130889)
+print(psychnos_source_original_count)
+
+psychnos_binary <- case_when(psychnos_firstocc_source >= 1 ~1, TRUE ~ 0)
+
+psychnos_binary_count <- table(psychnos_binary)
+print(psychnos_binary_count)
+print(psychnos_firstocc_source_count)
+
+# Combine into one broad psychosis variable - 1 = case, 0 = unaffected
+any_psychosis_df <- data.frame(scz_binary, pdd_binary, scza_binary, psychnos_binary)
+row_sums <- rowSums(any_psychosis_df)
+any_psychosis <- ifelse(row_sums > 0, 1, 0)
+any_psychosis_count <- table(any_psychosis)
+print(any_psychosis_count)
+
+# Name the other variables required
+plate <- phenodata$p30901_i0
+
+# Confounders
+# BMI
+bmi <- phenotypes$p21001_i0
+
+# Smoking
+smoking <- phenotypes$p20116_i0
+class(smoking)
+
+# Convert the smoking variable
+# Create a current smoking variable where current = 1, previous and never = 0, prefer not to answer = missing
+phenotypes$smoking_current <- ifelse(phenotypes$p20116_i0 == "Current", 1, 0)
+phenotypes$smoking_current[is.na(phenotypes$p20116_i0)] <- NA # Ensure 'Prefer not to answer' remains NA
+
+smoking_original_count <- table(phenotypes$smoking)
+print(smoking_original_count)
+smoking_current_count <- table(phenotypes$smoking_current)
+print(smoking_current_count)
+
+# ALT
+alt <- phenotypes$p30620_i0
+
+# AST 
+ast <- phenotypes$p30650_i0
+
+# Components of eGFR
+creatinine <- phenotypes$p30700_i0
+cystatinc <- phenotypes$p30720_i0
+
+
+# Perform an inner join of 'phenodata_clean' and 'olinkdata' using the 'eid_james' column
+phenoprotein <- phenodata_clean %>%
+  inner_join(olinkdata, by = "eid_james")
+write.csv(phenoprotein, "phenoprotein.csv", row.names = FALSE)

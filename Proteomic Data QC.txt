@@ -1,0 +1,118 @@
+## Proteomic Data QC, Kimberley Kendall, 6 April 2025
+This document describes the steps used to conduct quality control checks on the UKBB proteomics data for the UKBB Schizophrenia Proteomics Project. Note that limit of detection steps were run later.
+
+# Missing Data - percentage per protein
+# Calculate the number of missing values per column for columns 19 to 2941.
+missing_values_per_column <- colSums(is.na(phenoprotein[, 19:2941]))
+
+# Calculate the total number of rows in the data frame.
+total_rows <- nrow(phenoprotein)
+
+# Calculate the percentage of missing values for each column.
+percentage_missing_per_column <- (missing_values_per_column / total_rows) * 100
+
+# Create a data frame to store the results, including the column names.
+missing_results <- data.frame(
+  Column_Name = names(phenoprotein)[19:2941],  # Get column names from the original data frame
+  Missing_Values = missing_values_per_column,
+  Percentage_Missing = percentage_missing_per_column
+)
+
+# Save to a csv file
+write.csv(missing_results, "proteins_missing.csv", row.names = FALSE)
+
+# Exclude the proteins glipr1, npm1 and pcolce from a new data frame.
+phenoprotein_clean <- phenoprotein
+phenoprotein_clean <- phenoprotein_clean[, !(names(phenoprotein_clean) %in% c("glipr1", "npm1", "pcolce"))]
+
+# Check for a column named "glipr1" in the data frame "phenoprotein_clean"
+if ("glipr1" %in% names(phenoprotein_clean)) {
+  print("The column 'glipr1' exists in the data frame phenoprotein_clean.")
+} else {
+  print("The column 'glipr1' does not exist in the data frame phenoprotein_clean.")
+}
+
+# Check for a column named "npm1" in the data frame "phenoprotein_clean"
+if ("npm1" %in% names(phenoprotein_clean)) {
+  print("The column 'npm1' exists in the data frame phenoprotein_clean.")
+} else {
+  print("The column 'npm1' does not exist in the data frame phenoprotein_clean.")
+}
+
+# Check for a column named "pcolce" in the data frame "phenoprotein_clean"
+if ("pcolce" %in% names(phenoprotein_clean)) {
+  print("The column 'pcolce' exists in the data frame phenoprotein_clean.")
+} else {
+  print("The column 'pcolce' does not exist in the data frame phenoprotein_clean.")
+}
+
+write.csv(phenoprotein_clean, "phenoprotein_clean.csv", row.names= FALSE)
+
+# Calculate percentage missingness per person for all proteins
+# Define the protein columns (19 to 2938)
+protein_columns <- 19:2938
+
+# Calculate the number of protein columns
+num_protein_cols <- length(protein_columns)
+
+# Initialize an empty data frame to store the results
+missing_percentage_df <- data.frame(eid = character(), protein_missing_percentage = numeric(), stringsAsFactors = FALSE)
+
+# Process the data in chunks
+chunk_size <- 1000  # Adjust chunk size as needed
+num_participants <- nrow(phenoprotein_clean)
+num_chunks <- ceiling(num_participants / chunk_size)
+
+if(num_chunks > 0) { # Add this check
+  for (i in 1:num_chunks) {
+    start_row <- (i - 1) * chunk_size + 1
+    end_row <- min(i * chunk_size, num_participants)
+    chunk_df <- phenoprotein_clean[start_row:end_row, ] # Error:  object of type 'closure' is not subsettable
+    chunk_df <- as.data.frame(phenoprotein_clean[start_row:end_row, ]) # Fix: Ensure it's treated as a data frame.
+  
+    # Calculate the number of missing values per participant for the protein columns
+    chunk_df <- chunk_df %>%
+      mutate(protein_missing_count = rowSums(is.na(.[protein_columns])))
+  
+    # Calculate the percentage of missing values for protein data
+    chunk_df <- chunk_df %>%
+      mutate(protein_missing_percentage = (protein_missing_count / num_protein_cols) * 100)
+  
+    # Select the required columns
+    chunk_df_result <- chunk_df %>%
+      select(eid, protein_missing_percentage)
+  
+    # Append the results to the main data frame
+    missing_percentage_df <- rbind(missing_percentage_df, chunk_df_result)
+    
+      # Print progress
+    cat("Processed chunk", i, "of", num_chunks, "\n")
+    
+    # Write chunk to CSV (append mode)
+    write.table(chunk_df_result, file = "protein_missing_data.csv", append = TRUE, col.names = (i == 1), row.names = FALSE, sep = ",")
+  
+  }
+}
+
+# Calculate and print the number of people with >60% missing protein data
+num_high_missing <- phenoprotein_cleanmiss %>%
+  filter(protein_missing_percentage > 60) %>%
+  nrow()
+cat("\nNumber of people with >60% missing protein data:", num_high_missing, "\n")
+
+# Remove rows with protein_missing_percentage > 60
+data_filtered <- phenoprotein_cleanmiss %>%
+  filter(protein_missing_percentage <= 60)
+
+# Use a histogram and a density plot to visually inspect outliers
+ggplot(protein_data, aes(x = ProteinLevel)) +
+  geom_histogram(aes(y = ..density..),  # Show density on y-axis
+                 binwidth = 3, # Adjust binwidth as needed
+                 fill = "steelblue",
+                 color = "black",
+                 alpha = 0.7) +
+  geom_density(color = "red", size = 1) + # Add a density curve
+  labs(title = "Distribution of Protein Levels",
+       x = "Protein Level",
+       y = "Density") +
+  theme_minimal()

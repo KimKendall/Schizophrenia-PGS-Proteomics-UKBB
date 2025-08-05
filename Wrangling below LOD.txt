@@ -1,0 +1,40 @@
+## Wrangling below lod, Kimberley Kendall, 8 June 2025
+# Disable scientific notation
+options(scipen = 999)
+below_lod <- read_csv("below_lod.csv", col_types = cols(...1 = col_skip()))
+phenoproteinpgs_updated <- read_csv("phenoproteinpgs_updated.csv")
+
+# Insert a new column called percentage_below_lod
+# Calculate the percentage by dividing Below_LOD_Count by 51919 and multiplying by 100.
+below_lod$percentage_below_lod <- (below_lod$Below_LOD_Count / 51919) * 100
+
+# Remove '_merge.csv' from the Protein names
+# gsub() is used to replace all occurrences of a pattern in a string.
+# The pattern is "_merge\\.csv" (the double backslash is needed to escape the dot)
+# The replacement is an empty string ("").
+below_lod$Protein <- gsub("_merge\\.csv", "", below_lod$Protein)
+
+# Rename the columns
+names(below_lod)[names(below_lod) == "Protein"] <- "protein"
+names(below_lod)[names(below_lod) == "Below_LOD_Count"] <- "below_lod_count"
+write.csv(below_lod, "below_lod.csv", row.names = FALSE)
+
+# 1. Identify protein columns to remove
+# Filter below_lod for proteins with > 20% values below LOD
+proteins_to_remove <- below_lod %>%
+  filter(percentage_below_lod > 20) %>%
+  pull(protein) # Extract the protein names as a character vector
+
+cat("\n--- Proteins identified for removal (percentage_below_lod > 20%): ---\n")
+print(proteins_to_remove)
+
+# 2. Remove identified columns from phenoproteinpgs_updated
+# Select all columns EXCEPT those in 'proteins_to_remove'
+phenoproteinpgs_filtered <- phenoproteinpgs_updated %>%
+  select(-any_of(proteins_to_remove))
+
+cat("\n--- Column names of the filtered data frame: ---\n")
+print(colnames(phenoproteinpgs_filtered))
+
+write.csv(phenoproteinpgs_filtered, "analysis_file_filtered.csv", row.names = FALSE)
+

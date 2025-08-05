@@ -1,0 +1,105 @@
+## Additional confounders, Kimberley Kendall, 28 April 2025
+This file describes the steps used to add additional confounders to the association analyses.
+
+phenoproteinpgs <- read_csv("phenoproteinpgs.csv")
+# Set up variables
+colnames(phenoproteinpgs)[1] <- "prs_0.05"
+colnames(phenoproteinpgs)[2] <- "prs_1"
+
+prs <- phenoproteinpgs$prs_0.05
+eid <- phenoproteinpgs$eid
+sex <- phenoproteinpgs$sex
+age <- phenoproteinpgs$age
+age2 <- phenoproteinpgs$age_squared
+scz <- phenoproteinpgs$scz_binary
+psychosis <- phenoproteinpgs$any_psychosis
+bmi <- phenoproteinpgs$bmi
+alt <- phenoproteinpgs$alt
+ast <- phenoproteinpgs$ast
+
+# eGFR
+Sun et al used the eGFR equations from Inker et al https://doi.org/10.1056/NEJMoa1114248. Note I did not use ethnicity due to current guidelines suggesting we shouldn't be.
+eGFR equations:
+
+Females
+Scr ≤ 0.7 and Scys ≤ 0.8
+130 × (Scr/0.7)^−0.248 × (Scys/0.8)^−0.375 × 0.995^Age
+
+Scr ≤ 0.7 and Scys > 0.8
+130 × (Scr/0.7)^−0.248 × (Scys/0.8)^−0.711 × 0.995^Age
+
+Scr > 0.7 and Scys ≤ 0.8
+130 × (Scr/0.7)^−0.601 × (Scys/0.8)^−0.375 × 0.995^Age
+
+Scr > 0.7 and Scys > 0.8
+130 × (Scr/0.7)^−0.601 × (Scys/0.8)^−0.711 × 0.995^Age
+
+Males
+Scr ≤ 0.9 and Scys ≤ 0.8
+135 × (Scr/0.9)^−0.207 × (Scys/0.8)^−0.375 × 0.995^Age
+
+Scr ≤ 0.9 and Scys > 0.8
+135 × (Scr/0.9)^−0.207 × (Scys/0.8)^−0.711 × 0.995^Age
+
+Scr > 0.9 and Scys ≤ 0.8
+135 × (Scr/0.9)^−0.601 × (Scys/0.8)^−0.375 × 0.995^Age
+
+Scr > 0.9 and Scys > 0.8
+135 × (Scr/0.9)^−0.601 × (Scys/0.8)^−0.711 × 0.995^Age
+
+#Label required variables
+Scr_umol <- phenoproteinpgs$creatinine
+Scys <- phenoproteinpgs$cystatinc
+
+# Convert creatinine from umol/L to mg/dL
+# Define the conversion function
+umol_to_mgdl_creatinine <- function(creatinine_umol_L) {
+  molecular_weight <- 113.12
+  conversion_factor <- molecular_weight / 1000
+  creatinine_mg_dL <- creatinine_umol_L * conversion_factor / 10
+  return(creatinine_mg_dL)
+}
+
+# Apply the conversion function to the Scr_umol column and store it in a new column
+Scr_mgdl <- umol_to_mgdl_creatinine(Scr_umol)
+
+# Make a new sex variable for eGFR calculation 1 = Male, 0 = Female
+phenoproteinpgs$sex_egfr <- ifelse(sex ==1, "Male", "Female")
+
+# Calculate eGFR
+phenoproteinpgs$eGFR <- with(phenoproteinpgs, ifelse(
+  sex_egfr == "Female" & Scr_mgdl <= 0.7 & Scys <= 0.8,
+    130 * (Scr_mgdl / 0.7)^(-0.248) * (Scys / 0.8)^(-0.375) * 0.995^age,
+  ifelse(sex_egfr == "Female" & Scr_mgdl <= 0.7 & Scys > 0.8,
+    130 * (Scr_mgdl / 0.7)^(-0.248) * (Scys / 0.8)^(-0.711) * 0.995^age,
+  ifelse(sex_egfr == "Female" & Scr_mgdl > 0.7 & Scys <= 0.8,
+    130 * (Scr_mgdl / 0.7)^(-0.601) * (Scys / 0.8)^(-0.375) * 0.995^age,
+  ifelse(sex_egfr == "Female" & Scr_mgdl > 0.7 & Scys > 0.8,
+    130 * (Scr_mgdl / 0.7)^(-0.601) * (Scys / 0.8)^(-0.711) * 0.995^age,
+  ifelse(sex_egfr == "Male" & Scr_mgdl <= 0.9 & Scys <= 0.8,
+    135 * (Scr_mgdl / 0.9)^(-0.207) * (Scys / 0.8)^(-0.375) * 0.995^age,
+  ifelse(sex_egfr == "Male" & Scr_mgdl <= 0.9 & Scys > 0.8,
+    135 * (Scr_mgdl / 0.9)^(-0.207) * (Scys / 0.8)^(-0.711) * 0.995^age,
+  ifelse(sex_egfr == "Male" & Scr_mgdl > 0.9 & Scys <= 0.8,
+    135 * (Scr_mgdl / 0.9)^(-0.601) * (Scys / 0.8)^(-0.375) * 0.995^age,
+  ifelse(sex_egfr == "Male" & Scr_mgdl > 0.9 & Scys > 0.8,
+    135 * (Scr_mgdl / 0.9)^(-0.601) * (Scys / 0.8)^(-0.711) * 0.995^age,
+  NA)))))))))
+
+# Plot eGFR distribution
+ggplot(phenoproteinpgs, aes(x = eGFR)) +
+  geom_histogram(binwidth = 5, fill = "skyblue", color = "black") +
+  labs(title = "Histogram of eGFR", x = "eGFR (mL/min/1.73m^2)", y = "Count") +
+  theme_minimal()
+
+# Plot eGFR vs age
+ggplot(phenoproteinpgs, aes(x = age, y = eGFR)) +
+  geom_point(alpha = 0.6, color = "blue") +
+  geom_smooth(method = "loess", se = TRUE, color = "darkred") +
+  labs(title = "eGFR vs Age", x = "Age (years)", y = "eGFR (mL/min/1.73m^2)") +
+  theme_minimal()
+
+write.csv(phenoproteinpgs, "phenoproteinpgs.csv", row.names = FALSE)
+
+
+

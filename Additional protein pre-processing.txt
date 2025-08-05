@@ -1,0 +1,341 @@
+## Additional protein pre-processing
+
+# Pull data from Olink helper files
+# Disable scientific notation
+options(scipen = 999)
+
+olink_lod <- read.delim("~/olink_lod.dat")
+View(olink_lod)
+
+olink_warning <- read.delim("~/olink_warning.dat")
+View(olink_warning)
+
+# Perform a left join, adding the Assay_Warning column
+olink_lod_updated <- olink_lod %>%
+  left_join(olink_warning, by = c("PlateID", "Assay"))
+
+assay <- read.delim("~/assay.dat")
+View(assay)
+
+# Perform a left join to add UniProt and Panel
+olink_lod_updated <- olink_lod_updated %>%
+  left_join(assay, by = "Assay")
+
+olink_batchnumber <- read.delim("~/olink_batchnumber.dat")
+View(olink_batchnumber)
+
+# Perform a left join to add Batch
+olink_lod_updated <- olink_lod_updated %>%
+  left_join(olink_batchnumber, by = "PlateID")
+
+olink_procstartdate <- read.delim("~/olink_procstartdate.dat")
+View(olink_procstartdate)
+
+# Perform a left join to add Processing_StartDate
+olink_lod_updated <- olink_lod_updated %>%
+  left_join(olink_procstartdate, by = c("PlateID", "Panel"))
+
+# Rename columns
+olink_lod_updated <- olink_lod_updated %>%
+  rename(olink_plate = PlateID)
+olink_lod_updated <- olink_lod_updated %>%
+  rename(olink_assay = Assay)
+olink_lod_updated <- olink_lod_updated %>%
+  rename(olink_lod = LOD)
+olink_lod_updated <- olink_lod_updated %>%
+  rename(olink_warning = Assay_Warning)
+olink_lod_updated <- olink_lod_updated %>%
+  rename(olink_uniprot = UniProt)
+olink_lod_updated <- olink_lod_updated %>%
+  rename(olink_panel = Panel)
+olink_lod_updated <- olink_lod_updated %>%
+  rename(olink_batch = Batch)
+olink_lod_updated <- olink_lod_updated %>%
+  rename(olink_procstartdate = Processing_StartDate)
+
+# Exclude instances greater than 0
+olink_resource_instance0 <- olink_lod_updated %>% filter(Instance <= 0)
+
+# Use the tolower() function to convert the 'olink_assay' column to lowercase
+olink_resource_instance0$olink_assay <- tolower(olink_resource_instance0$olink_assay)
+
+write.csv(olink_resource_instance0, "olink_resource_instance0.csv", row.names = FALSE)
+
+# Bring matchable and needed variables over to phenoproteinpgs_updated from phenodata (plate and well)
+# Perform the left join using dplyr's left_join function
+phenoproteinpgs_updated <- left_join(phenoproteinpgs_updated, 
+                                           phenodata %>% select(eid, p30901_i0, p30902_i0), 
+                                           by = c("eid" = "eid"))
+
+
+phenoproteinpgs_updated <- phenoproteinpgs_updated %>%
+  rename(olink_well = p30902_i0)
+phenoproteinpgs_updated <- phenoproteinpgs_updated %>%
+  rename(olink_plate = p30901_i0)
+
+write.csv(phenoproteinpgs_updated, "phenoproteinpgs_updated.csv", row.names = FALSE)
+phenoproteinpgs_updated <- read_csv("phenoproteinpgs_updated.csv")
+
+# Change column titles to make merging later easier
+phenoproteinpgs_updated <- phenoproteinpgs_updated %>%
+  rename(plate = olink_plate)
+phenoproteinpgs_updated <- phenoproteinpgs_updated %>%
+  rename(well = olink_well)
+olink_resource_instance0 <- olink_resource_instance0 %>%
+  rename(plate = olink_plate)
+olink_resource_instance0 <- olink_resource_instance0 %>%
+  rename(assay = olink_assay)
+olink_resource_instance0 <- olink_resource_instance0 %>%
+  rename(lod = olink_lod)
+olink_resource_instance0 <- olink_resource_instance0 %>%
+  rename(uniprot = olink_uniprot)
+olink_resource_instance0 <- olink_resource_instance0 %>%
+  rename(panel = olink_panel)
+olink_resource_instance0 <- olink_resource_instance0 %>%
+  rename(batch = olink_batch)
+olink_resource_instance0 <- olink_resource_instance0 %>%
+  rename(start = olink_procstartdate)
+olink_resource_instance0 <- olink_resource_instance0 %>%
+  mutate(plate = as.character(plate))
+write.csv(olink_resource_instance0, "olink_resource_instance0.csv", row.names = FALSE)
+write.csv(phenoproteinpgs_updated, "phenoproteinpgs_updated.csv", row.names = FALSE)
+
+# Create a copy to work with, to avoid modifying the original data frame
+df <- olink_resource_instance0
+
+# Check if the dataframe exists
+if (!exists("df")) {
+  stop("Error: The dataframe 'df' (or 'olink_resource_instance0') does not exist. Please make sure it is loaded into your R environment.")
+}
+
+# Check if the required column exists
+if (!("assay" %in% colnames(df))) {
+  stop("Error: The column 'assay' does not exist in the dataframe.  Please check the column name and try again.")
+}
+# Split the data frame by protein names in the 'olink_assay' column
+split_df <- split(df, df$assay)
+
+# Create the directory if it doesn't exist
+output_dir <- "protein_csvs"
+if (!dir.exists(output_dir)) {
+  dir.create(output_dir)
+}
+
+# Remove the 'olink_assay' column from each of the split data frames, and name the dataframes
+for (protein_name in names(split_df)) {
+  split_df[[protein_name]] <- split_df[[protein_name]] %>% select(-assay) #using dplyr
+
+  # Rename columns
+  new_colnames <- gsub("olink", protein_name, colnames(split_df[[protein_name]]))
+  colnames(split_df[[protein_name]]) <- new_colnames
+
+  # Assign the split data frames to objects in the environment
+  assign(protein_name, split_df[[protein_name]])
+
+  # Write each data frame to a CSV file in the specified directory
+  filename <- paste0(output_dir, "/", protein_name, ".csv") # Corrected path for saving in the directory
+  write.csv(split_df[[protein_name]], file = filename, row.names = FALSE)
+}
+
+# Define the columns to retain in each output file
+base_columns <- c("eid", "plate", "well")
+
+# Loop over each protein column (columns 12 to 2931)
+for (i in 12:2931) {
+  protein_name <- colnames(phenoproteinpgs_updated)[i]
+  
+  # Create a new data frame with base columns and the current protein column
+  subset_df <- phenoproteinpgs_updated[, c(base_columns, protein_name)]
+  
+  # Create the filename
+  filename <- paste0(protein_name, "_data.csv")
+  
+  # Write the data frame to CSV
+  write.csv(subset_df, file = filename, row.names = FALSE)
+}
+
+# Currently plate in the protein files is numeric but character in the _data files. Convert the data files to numeric.
+# Get a list of all CSV files ending with "_data.csv"
+file_list <- list.files(pattern = "_data\\.csv$", full.names = TRUE)
+
+# Check if any matching files were found
+if (length(file_list) == 0) {
+  message("No files matching '_data.csv' found in the current directory.")
+} else {
+  # Loop through each file in the list
+  for (file in file_list) {
+    # Read the CSV file into a data frame
+    data <- read.csv(file)
+
+    # Check if the "plate" column exists
+    if ("plate" %in% colnames(data)) {
+      # Try to convert the "plate" column to numeric, handling errors
+      data$plate <- as.numeric(as.character(data$plate)) # Convert to character first to handle non-numeric factors
+
+      # Check if the conversion resulted in any NA values (indicating errors)
+      if (any(is.na(data$plate))) {
+        warning(paste("Conversion of 'plate' column to numeric failed with NA values in file:", file))
+        #  Optional:  Impute missing values or handle them in another way.  For example:
+        #  data$plate[is.na(data$plate)] <- 0  # Replace NAs with 0
+        #  Or remove rows with NA
+        # data <- data[!is.na(data$plate),]
+      }
+
+      # Write the modified data frame back to the CSV file
+      write.csv(data, file, row.names = FALSE)
+      message(paste("Converted 'plate' column to numeric in:", file))
+    } else {
+      warning(paste("The file:", file, "does not contain a 'plate' column."))
+    }
+  }
+}
+
+# Generate below lod columns for each protein where 1 = below lod.
+# Define the directory where the files are located.
+file_directory <- "."  # Change this to the actual directory if needed
+
+# Get a list of all _data.csv files in the directory
+protein_files <- list.files(path = file_directory, pattern = "_data\\.csv$")
+
+# Loop through each protein data file.
+for (protein_data_file in protein_files) {
+  # Extract the protein name from the data file name.
+  protein_name <- str_replace(protein_data_file, "_data\\.csv$", "")
+  
+  # Construct the corresponding protein file name.
+  protein_file <- file.path(file_directory, paste0(protein_name, ".csv"))
+  
+  # Construct the output file name
+  output_file_name <- file.path(file_directory, paste0(protein_name, "_merge.csv"))
+  
+  # Check if the protein file exists before proceeding.
+  if (!file.exists(protein_file)) {
+    cat(paste0("Skipping ", protein_name, " because ", protein_file, " does not exist.\n"))
+    next  # Skip to the next iteration of the loop
+  }
+  
+  tryCatch({
+    # Read the two CSV files into dataframes.
+    protein_data <- read_csv(file.path(file_directory, paste0(protein_name, ".csv")))
+    protein_data_data <- read_csv(file.path(file_directory, protein_data_file))
+    
+    # Perform an inner join on the "plate" column.
+    merged_data <- merge(protein_data_data, protein_data, by = "plate")
+    
+    # Check if the output file already exists and has a 'below_lod' column
+    if (file.exists(output_file_name)) {
+      existing_data <- read_csv(output_file_name)
+      if ("below_lod" %in% names(existing_data)) {
+        cat(paste0("Skipping 'below_lod' calculation for ", protein_name, " as it already exists in the merged file.\n"))
+        next # Skip to the next protein
+      }
+    }
+    
+    # Generate the 'below_lod' column.
+    if (protein_name %in% names(merged_data)) {
+      lod <- 200  # Hardcoded LOD value
+      merged_data <- merged_data %>%
+        mutate(below_lod = ifelse(get(protein_name) < lod, 1, 0))
+    } else {
+      cat(paste0("Warning: Protein column '", protein_name, "' not found in merged data. Skipping below_lod calculation for ", protein_name, ".\n"))
+      next
+    }
+    
+    # To save the merged data to a new CSV file:
+    write_csv(merged_data, output_file_name)
+    
+    # Print a message to the console to indicate that the file has been processed.
+    cat(paste0("Processed and saved: ", output_file_name, "\n"))
+    
+  }, error = function(e) {
+    cat(paste0("An error occurred while processing ", protein_name, ": ", e$message, "\n"))
+    # Optionally, you might want to stop the script if a critical error occurs.
+    # stop(e) # Uncomment this line to re-raise the exception and stop the script.
+    # Or, you can just continue to the next file:
+    
+  })
+  
+}
+print("Finished processing.")
+
+
+# Check if any of the merged files contain below lod values
+# Get a list of all files in the current directory that end with "_merge.csv"
+files <- list.files(pattern = "_merge\\.csv$")
+
+# Check if any files were found
+if (length(files) == 0) {
+  message("No files ending with '_merge.csv' found in the current directory.")
+} else {
+  # Iterate through each file
+  for (file in files) {
+    # Read the CSV file
+    data <- tryCatch({
+      read.csv(file)
+    }, error = function(e) {
+      # If an error occurs while reading the file, print a message and return NULL
+      message(paste("Error reading file:", file, "-", e$message))
+      return(NULL)
+    })
+
+    # Skip to the next iteration if there was an error reading the file
+    if (is.null(data)) {
+      next
+    }
+
+    # Check if the "below_lod" column exists in the data frame
+    if ("below_lod" %in% colnames(data)) {
+      # Check if the "below_lod" column contains the value 1
+      if (1 %in% data$below_lod) {
+        # Print the name of the file if the condition is met
+        cat("File:", file, "contains '1' in the 'below_lod' column.\n")
+      }
+    } else {
+      # Print a message if the "below_lod" column is not found in the file
+      message(paste("Warning: File", file, "does not contain the column 'below_lod'."))
+    }
+  }
+}
+
+# Remove leading zeros from the 'plate' column in phenoproteinpgs_updated
+phenoproteinpgs_updated <- phenoproteinpgs_updated %>%
+  mutate(plate = gsub("^0+", "", plate))
+
+batch_start$batch_status <- NULL
+names(batch_start)[names(batch_start) == "assigned_batch"] <- "batch"
+names(batch_start)[names(batch_start) == "midpoint_date"] <- "analysis_date"
+
+phenoproteinpgs_updated <- merge(
+  x = phenoproteinpgs_updated,
+  y = batch_start[, c("plate", "batch", "analysis_date")], # Select only necessary columns from batch_start
+  by = "plate",
+  all.x = TRUE
+)
+
+write.csv(phenoproteinpgs_updated, "phenoproteinpgs_updated.csv", row.names = FALSE)
+
+class(phenodata$eid)
+class(phenoproteinpgs_updated$eid)
+
+# Select only the necessary columns from phenodata for the merge
+phenodata_subset <- phenodata[, c("eid", "p54_i0", "p53_i0")]
+
+phenoproteinpgs_updated <- phenoproteinpgs_updated %>%
+  left_join(phenodata_subset, by = c("eid" = "eid"))
+
+names(phenoproteinpgs_updated)[names(phenoproteinpgs_updated) == "p54_i0.x"] <- "axcentre"
+names(phenoproteinpgs_updated)[names(phenoproteinpgs_updated) == "p53_i0.x"] <- "axdate"
+
+write.csv(phenoproteinpgs_updated, "phenoproteinpgs_updated.csv", row.names = FALSE)
+
+# Work out the difference in time between when the participant had their blood sampled at the assessment centre and when it was analysed.
+class(phenoproteinpgs_updated$analysis_date)
+class(phenoproteinpgs_updated$axdate)
+
+# Calculate the difference in days
+phenoproteinpgs_updated$time_delay <- phenoproteinpgs_updated$analysis_date - phenoproteinpgs_updated$axdate
+
+phenoproteinpgs_updated$time_delay <- as.numeric(phenoproteinpgs_updated$time_delay)
+
+write.csv(phenoproteinpgs_updated, "phenoproteinpgs_updated.csv", row.names = FALSE)
+
