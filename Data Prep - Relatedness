@@ -1,0 +1,112 @@
+---
+title: "Data Prep - Relatedness"
+author: "Kimberley Kendall"
+date: "2025-11-12"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data Prep - Relatedness
+
+```{r}
+# Load the data.table library
+library(data.table)
+
+# Configuration
+kinship_file <- "ukb_rel.dat"
+output_file <- "individuals_to_remove_datatable.txt"
+kinship_threshold <- 0.0442
+
+# Load and Filter Data
+message(paste("Loading", kinship_file, "..."))
+
+# Use fread() for fast parallel reading
+rel_data <- fread(
+  kinship_file,
+  col.names = c("ID1", "ID2", "HetHet", "IBS0", "Kinship")
+)
+
+# Filter for pairs above the kinship threshold
+# data.table syntax: DT[filter_condition]
+remaining_pairs <- rel_data[Kinship > kinship_threshold]
+
+message(paste("Found", nrow(remaining_pairs), "pairs with Kinship >", kinship_threshold))
+
+# Run Greedy Algorithm
+# Create an empty vector to store the IDs we want to remove
+individuals_to_remove <- c()
+
+message("Starting greedy removal algorithm...")
+
+# Set keys for faster subsetting (optional but good practice)
+setkey(remaining_pairs, ID1, ID2)
+
+while (nrow(remaining_pairs) > 0) {
+    
+  # Count occurrences of all IDs
+  # 1. Melt the table to long format (all IDs in one column)
+  # 2. Count occurrences (.N) by ID
+  # 3. Order by count (N) descending
+  id_counts <- melt(remaining_pairs, measure.vars = c("ID1", "ID2"), value.name = "ID")[, .N, by = ID][order(-N)]
+  
+  # If no counts, we are done
+  if (nrow(id_counts) == 0) {
+    break
+  }
+  
+  # Get the ID with the highest count
+  id_to_remove <- id_counts[1, ID]
+  
+  # Add this ID to our removal list
+  individuals_to_remove <- c(individuals_to_remove, id_to_remove)
+  
+  # Efficiently filter out all pairs involving this ID
+  # This is the key step that is much faster in data.table
+  remaining_pairs <- remaining_pairs[ID1 != id_to_remove & ID2 != id_to_remove]
+  
+  # Optional: Print progress every 1000 removals
+  if (length(individuals_to_remove) %% 1000 == 0) {
+    message(paste("... Removed", length(individuals_to_remove), "individuals"))
+  }
+}
+
+message(paste("Algorithm complete. Identified", length(individuals_to_remove), "individuals to remove."))
+
+# Save Output File
+# Create the final data.table in (FID, IID) format
+output_dt <- data.table(
+  FID = individuals_to_remove,
+  IID = individuals_to_remove
+)
+
+# Use fwrite() for fast parallel writing
+fwrite(
+  output_dt,
+  file = output_file,
+  sep = "\t",          # Use a tab separator
+  col.names = FALSE,   # No header
+  quote = FALSE        # No quotes
+)
+
+message(paste("Removal list saved to", output_file))
+
+# Save Output File
+# Create the final data.table in (FID, IID) format
+output_dt <- data.table(
+  FID = individuals_to_remove,
+  IID = individuals_to_remove
+)
+
+# Use fwrite() for fast parallel writing
+fwrite(
+  output_dt,
+  file = output_file,
+  sep = "\t",          # Use a tab separator
+  col.names = FALSE,   # No header
+  quote = FALSE        # No quotes
+)
+
+message(paste("Removal list saved to", output_file))
+```
