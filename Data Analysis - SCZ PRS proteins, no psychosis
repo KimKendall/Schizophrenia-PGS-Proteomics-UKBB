@@ -76,18 +76,18 @@ for (protein_col in protein_columns) {
 
 cat("All regressions completed. Results are in", output_file, "\n")
 
-# Create a new data frame containing only rows where 'Predictor' is 'prs_0.05'
+# After all regressions complete
+regression_results_main <- read.csv("regression_results_main.csv", header = TRUE)
+
 prs_results <- regression_results_main[regression_results_main$Predictor == "prs_0.05", ]
 write.csv(prs_results, "prs_results.csv", row.names = FALSE)
 
-prs_results <- read_csv("prs_results.csv")
-View(prs_results)
+prs_results <- readr::read_csv("prs_results.csv")
 
-# Get the number of p-values (number of tests)
-num_tests <- length(prs_results$"P-value")
+num_tests <- length(prs_results$P.value)
 
-prs_results$"P-value_Bonferroni" <- pmin(prs_results$"P-value" * num_tests, 1)
+prs_results$P.value_Bonferroni <- pmin(prs_results$P.value * num_tests, 1)
+prs_results$P.value_FDR <- p.adjust(prs_results$P.value, method = "fdr")
 
-prs_results$"P-value_FDR" <- p.adjust(prs_results$"P-value", method = "fdr")
- 
-write.csv(prs_results, "prs_results_corrected.csv", row.names = FALSE)
+write.csv(prs_results, "prs_results_corrected_new.csv", row.names = FALSE)
+
