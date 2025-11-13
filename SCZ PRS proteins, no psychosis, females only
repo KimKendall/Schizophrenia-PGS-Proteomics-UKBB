@@ -1,43 +1,63 @@
-### 1. Filter for Females
-# Code for females is 0
-filtered_females <- eu_analysis_file %>%
+# --- FEMALES ONLY: PRS–protein regressions ---
+
+library(dplyr)
+library(readr)
+
+# 1. Filter dataset: EU ancestry, no psychosis, unrelated, FEMALES ONLY (sex == 0)
+filtered_eu_female <- eu_analysis_file %>%
   filter(
-    EUR >= 0.8, 
-    any_psychosis != 1, 
+    EUR >= 0.8,
+    any_psychosis != 1,
     related_exclude != 1,
-    sex == 0  # <-- Filter for females
+    sex == 0
   )
 
-  ### 2. Check Demographics (Optional)
-print("--- Female Analysis Demographics ---")
-age_summary_F <- filtered_females %>%
+# 2. Demographic information (sanity checks)
+age_summary_female <- filtered_eu_female %>%
   summarise(
     mean_age = mean(age, na.rm = TRUE),
     sd_age = sd(age, na.rm = TRUE),
     missing_age_count = sum(is.na(age))
   )
-print(age_summary_F)
-print(paste("Total Females:", nrow(filtered_females)))
-print("---------------------------------")
 
-### 3. Define Predictors (Sex Removed)
+print("Age summary for FEMALES:")
+print(age_summary_female)
+
+sex_summary_female <- table(filtered_eu_female$sex)
+print("Sex coding for FEMALES subset (should be 0 only):")
+print(sex_summary_female)
+
+# 3. Define columns containing protein data
 protein_columns <- 113:2189
-# "sex" has been REMOVED from this list
-predictor_variables_F <- c("prs_0.05", "age", "age_squared", "PC1", "PC2", "PC3", "PC4", "PC5", "time_delay", "batch", "bmi", "smoking_current", "no_meds", "egfr", "alt")
 
-### 4. Run Regression Loop
-output_file_F <- "regression_results_main_females.csv"
+# 4. Define predictor variables (sex removed because we’re stratified)
+predictor_variables <- c(
+  "prs_0.05", "age", "age_squared",
+  "PC1", "PC2", "PC3", "PC4", "PC5",
+  "time_delay", "batch", "bmi",
+  "smoking_current", "no_meds", "egfr", "alt"
+)
 
-# Write the header
-write.table(t(c("Protein", "Predictor", "Estimate", "Std. Error", "P-value")), file = output_file_F, append = FALSE, sep = ",", col.names = FALSE, row.names = FALSE)
+# 5. Create the output file for regression results
+output_file <- "regression_results_female.csv"
 
-cat("Starting Female-Only Regressions...\n")
+# Write header
+write.table(
+  t(c("Protein", "Predictor", "Estimate", "Std. Error", "P-value")),
+  file = output_file,
+  append = FALSE,
+  sep = ",",
+  col.names = FALSE,
+  row.names = FALSE
+)
+
+# 6. Run the regression loop
 for (protein_col in protein_columns) {
-  protein_name <- names(filtered_females)[protein_col]
-  formula_str_F <- paste(protein_name, "~", paste(predictor_variables_F, collapse = " + "))
+  protein_name <- names(filtered_eu_female)[protein_col]
+  formula_str <- paste(protein_name, "~", paste(predictor_variables, collapse = " + "))
 
   tryCatch({
-    model <- lm(as.formula(formula_str_F), data = filtered_females) # Use filtered_females
+    model <- lm(as.formula(formula_str), data = filtered_eu_female)
     model_summary <- summary(model)
     coef_table <- coef(model_summary)
 
@@ -46,31 +66,44 @@ for (protein_col in protein_columns) {
       estimate <- coef_table[i, 1]
       std_error <- coef_table[i, 2]
       p_value <- coef_table[i, 4]
+
       line <- c(protein_name, predictor_name, estimate, std_error, p_value)
-      write.table(t(line), file = output_file_F, append = TRUE, sep = ",", col.names = FALSE, row.names = FALSE) # Write to _F file
+      write.table(
+        t(line),
+        file = output_file,
+        append = TRUE,
+        sep = ",",
+        col.names = FALSE,
+        row.names = FALSE
+      )
     }
+
+    cat("Female regression completed for protein:", protein_name, "\n")
+
   }, error = function(e) {
-    error_message <- paste("Error in regression for protein:", protein_name, "-", e$message)
-    write(error_message, file = output_file_F, append = TRUE)
+    error_message <- paste("Error in FEMALE regression for protein:", protein_name, "-", e$message)
+    write(error_message, file = output_file, append = TRUE)
+    write("--------------------------------------------------", file = output_file, append = TRUE)
     cat(error_message, "\n")
   })
 }
-cat("All Female regressions completed. Results are in", output_file_F, "\n")
 
-### 5. Post-Process and Correct P-values
-# Read the results file we just created
-regression_results_F <- read.csv(output_file_F)
+cat("All FEMALE regressions completed. Results are in", output_file, "\n")
 
-# Filter for prs_0.05
-prs_results_F <- regression_results_F[regression_results_F$Predictor == "prs_0.05", ]
-write.csv(prs_results_F, "prs_results_females.csv", row.names = FALSE)
+# 7. Read results back in and extract PRS rows
+regression_results_female <- read.csv(output_file, header = TRUE)
 
-# Correct P-values
-num_tests_F <- length(prs_results_F$"P.value") # Note: read.csv changes "P-value" to "P.value"
+prs_results_female <- regression_results_female[
+  regression_results_female$Predictor == "prs_0.05", ]
 
-prs_results_F$"P.value_Bonferroni" <- pmin(prs_results_F$"P.value" * num_tests_F, 1)
-prs_results_F$"P.value_FDR" <- p.adjust(prs_results_F$"P.value", method = "fdr")
+write.csv(prs_results_female, "prs_results_female.csv", row.names = FALSE)
 
-write.csv(prs_results_F, "prs_results_corrected_females.csv", row.names = FALSE)
+# 8. Multiple testing correction
+prs_results_female <- read_csv("prs_results_female.csv")
 
-cat("Female p-value correction complete.\n")
+num_tests_female <- length(prs_results_female$P.value)
+
+prs_results_female$P.value_Bonferroni <- pmin(prs_results_female$P.value * num_tests_female, 1)
+prs_results_female$P.value_FDR <- p.adjust(prs_results_female$P.value, method = "fdr")
+
+write.csv(prs_results_female, "prs_results_female_corrected.csv", row.names = FALSE)
