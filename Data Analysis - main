@@ -1,0 +1,93 @@
+# Required file - phenotype and protein data with relatedness exclusion and EU ancestry added.
+
+# Filtering - exclude those of genetic non-EU ancestry (probability >= 0.8; those with psychosis; those who are related - see previous process).
+filtered_eu_analysis <- eu_analysis_file %>%
+  filter(EUR >= 0.8, any_psychosis != 1, related_exclude != 1)
+
+# Demographic Information
+library(dplyr)
+
+age_summary <- filtered_eu_analysis %>%
+  summarise(
+    mean_age = mean(age, na.rm = TRUE),
+    sd_age = sd(age, na.rm = TRUE),
+    missing_age_count = sum(is.na(age)) # Good to check NAs
+  )
+
+print("Age summary for the filtered data:")
+print(age_summary)  
+
+sex_summary <- table(filtered_eu_analysis$sex)
+print(sex_summary)  
+
+# Define the columns containing protein data
+protein_columns <- 113:2189
+
+# Define predictor variables 
+predictor_variables <- c("prs_0.05", "age", "age_squared", "sex", "PC1", "PC2", "PC3", "PC4", "PC5", "time_delay", "batch", "bmi", "smoking_current", "no_meds", "egfr", "alt")
+
+# Create the output file 
+output_file <- "regression_results_main.csv"
+
+# Write the header to the output file
+write.table(t(c("Protein", "Predictor", "Estimate", "Std. Error", "P-value")), file = output_file, append = FALSE, sep = ",", col.names = FALSE, row.names = FALSE) # Changed to write.table
+
+# Run the Regression Loop
+# Loop through each protein column
+for (protein_col in protein_columns) {
+  # Construct the regression formula
+  protein_name <- names(filtered_eu_analysis)[protein_col]
+  formula_str <- paste(protein_name, "~", paste(predictor_variables, collapse = " + "))
+
+  # Try to perform the regression, with error handling
+  tryCatch({
+    # Perform the linear regression
+    model <- lm(as.formula(formula_str), data = filtered_eu_analysis)
+
+    # Get the summary of the model
+    model_summary <- summary(model)
+
+    # Extract the coefficients table
+    coef_table <- coef(model_summary)
+
+    # Loop through the rows of the coefficient table and write the results
+    for (i in 1:nrow(coef_table)) {
+      predictor_name <- rownames(coef_table)[i]
+      estimate <- coef_table[i, 1]
+      std_error <- coef_table[i, 2]
+      p_value <- coef_table[i, 4]
+      line <- c(protein_name, predictor_name, estimate, std_error, p_value) # Added protein_name
+      write.table(t(line), file = output_file, append = TRUE, sep = ",", col.names = FALSE, row.names = FALSE) # Changed to write.table
+    }
+    # Removed the extra separator line
+    # write("--------------------------------------------------", file = output_file, append = TRUE)
+
+    # Print a message to the console to show progress
+    cat("Regression completed for protein:", protein_name, "\n")
+
+  }, error = function(e) {
+    # Handle any errors that occur during the regression
+    error_message <- paste("Error in regression for protein:", protein_name, "-", e$message)
+    write(error_message, file = output_file, append = TRUE)
+    write("--------------------------------------------------", file = output_file, append = TRUE)
+    cat(error_message, "\n")
+  })
+}
+
+cat("All regressions completed. Results are in", output_file, "\n")
+
+# Create a new data frame containing only rows where 'Predictor' is 'prs_0.05'
+prs_results <- regression_results_main[regression_results_main$Predictor == "prs_0.05", ]
+write.csv(prs_results, "prs_results.csv", row.names = FALSE)
+
+prs_results <- read_csv("prs_results.csv")
+View(prs_results)
+
+# Get the number of p-values (number of tests)
+num_tests <- length(prs_results$"P-value")
+
+prs_results$"P-value_Bonferroni" <- pmin(prs_results$"P-value" * num_tests, 1)
+
+prs_results$"P-value_FDR" <- p.adjust(prs_results$"P-value", method = "fdr")
+ 
+write.csv(prs_results, "prs_results_corrected.csv", row.names = FALSE)
