@@ -1,7 +1,7 @@
 # Required file - phenotype and protein data with relatedness exclusion and EU ancestry added.
 
 # Filtering - exclude those of genetic non-EU ancestry (probability >= 0.8; those without psychosis; those who are related - see previous process).
-filtered_eu_analysis <- eu_analysis_file %>%
+filtered_eu_psychosis <- eu_analysis_file %>%
   filter(EUR >= 0.8, any_psychosis == 1, related_exclude != 1)
  print(paste("Remaining rows:", nrow(filtered_eu_psychosis)))
 
