@@ -1,0 +1,153 @@
+# Required file - phenotype and protein data with relatedness exclusion and EU ancestry added.
+
+# Filtering - exclude those of genetic non-EU ancestry (probability >= 0.8; those without psychosis; those who are related - see previous process).
+filtered_eu_analysis <- eu_analysis_file %>%
+  filter(EUR >= 0.8, any_psychosis == 1, related_exclude != 1)
+ print(paste("Remaining rows:", nrow(filtered_eu_psychosis)))
+
+# Demographic Information
+# Count Females (sex = 0)
+count_female <- sum(filtered_eu_psychosis$sex == 0, na.rm = TRUE)
+
+# Count Males (sex = 1)
+count_male <- sum(filtered_eu_psychosis$sex == 1, na.rm = TRUE)
+
+# Age Statistics
+mean_age <- mean(filtered_eu_psychosis$age, na.rm = TRUE)
+sd_age <- sd(filtered_eu_psychosis$age, na.rm = TRUE)
+min_age <- min(filtered_eu_psychosis$age, na.rm = TRUE)
+max_age <- max(filtered_eu_psychosis$age, na.rm = TRUE)
+
+# Print the results clearly
+print(paste("Number of Females:", count_female))
+print(paste("Number of Males:", count_male))
+print(paste("Mean Age:", round(mean_age, 2)))
+print(paste("Standard Deviation of Age:", round(sd_age, 2)))
+print(paste("Age Range:", min_age, "to", max_age))
+
+# Matched comparisons for three proteins
+
+# Filtering - exclude those of genetic non-EU ancestry (probability >= 0.8; those who are related - see previous process).
+filtered_eu_analysis <- eu_analysis_file %>%
+  filter(EUR >= 0.8, related_exclude != 1)
+ print(paste("Remaining rows:", nrow(filtered_eu_analysis)))
+
+# Define matching variables
+match_vars <- c("age", "sex", "ethnicity_grouped", "time_delay", 
+                "smoking_current", "bmi", "no_meds")
+
+# Keep full rows (all columns) but filter only based on missingness in match_vars
+analysis_matched <- filtered_eu_analysis[complete.cases(filtered_eu_analysis[, match_vars]), ]
+
+# Step 2: Run matching
+library(MatchIt)
+match_model <- matchit(
+  formula = any_psychosis ~ age + sex + ethnicity_grouped + time_delay + smoking_current + bmi + no_meds,
+  data = analysis_matched,
+  method = "nearest",
+  ratio = 3
+)
+# Step 3: Extract matched dataset with all original columns
+matched_data <- match.data(match_model, data = analysis_matched)
+
+# Step 4: Baseline table
+library(tableone)
+CreateTableOne(
+    vars = match_vars[-1],  # all matching variables except scz_binary
+    strata = "scz_binary",
+    data = matched_data,
+    factorVars = c("sex", "ethnicity_grouped", "smoking_current")
+)
+# Step 5: Save matched dataset with all variables
+write.csv(matched_data, "matched_data.csv", row.names = FALSE)
+
+# Secondary Analyses - Regressions
+# klk1 regression model
+model_klk1 <- lm(klk1 ~ any_psychosis, data = matched_data)
+summary(model_klk1)
+
+# adgrb3 regression model
+model_adgrb3 <- lm(adgrb3 ~ any_psychosis, data = matched_data)
+summary(model_adgrb3)
+
+#  tmprss15 regression model
+model_tmprss15 <- lm(tmprss15 ~ any_psychosis, data = matched_data)
+summary(model_tmprss15)
+
+pvals <- c(0.0478, 0.3206, 0.1189, 0.1247, 0.001394)
+p.adjust(pvals, method = "fdr")
+
+
+
+
+
+# Define the columns containing protein data
+protein_columns <- 113:2189
+
+# Define predictor variables 
+predictor_variables <- c("prs_0.05", "age", "age_squared", "sex", "PC1", "PC2", "PC3", "PC4", "PC5", "time_delay", "batch", "bmi", "smoking_current", "no_meds", "egfr", "alt")
+
+# Create the output file 
+output_file <- "regression_results_main.csv"
+
+# Write the header to the output file
+write.table(t(c("Protein", "Predictor", "Estimate", "Std. Error", "P-value")), file = output_file, append = FALSE, sep = ",", col.names = FALSE, row.names = FALSE) # Changed to write.table
+
+# Run the Regression Loop
+# Loop through each protein column
+for (protein_col in protein_columns) {
+  # Construct the regression formula
+  protein_name <- names(filtered_eu_analysis)[protein_col]
+  formula_str <- paste(protein_name, "~", paste(predictor_variables, collapse = " + "))
+
+  # Try to perform the regression, with error handling
+  tryCatch({
+    # Perform the linear regression
+    model <- lm(as.formula(formula_str), data = filtered_eu_analysis)
+
+    # Get the summary of the model
+    model_summary <- summary(model)
+
+    # Extract the coefficients table
+    coef_table <- coef(model_summary)
+
+    # Loop through the rows of the coefficient table and write the results
+    for (i in 1:nrow(coef_table)) {
+      predictor_name <- rownames(coef_table)[i]
+      estimate <- coef_table[i, 1]
+      std_error <- coef_table[i, 2]
+      p_value <- coef_table[i, 4]
+      line <- c(protein_name, predictor_name, estimate, std_error, p_value) # Added protein_name
+      write.table(t(line), file = output_file, append = TRUE, sep = ",", col.names = FALSE, row.names = FALSE) # Changed to write.table
+    }
+    # Removed the extra separator line
+    # write("--------------------------------------------------", file = output_file, append = TRUE)
+
+    # Print a message to the console to show progress
+    cat("Regression completed for protein:", protein_name, "\n")
+
+  }, error = function(e) {
+    # Handle any errors that occur during the regression
+    error_message <- paste("Error in regression for protein:", protein_name, "-", e$message)
+    write(error_message, file = output_file, append = TRUE)
+    write("--------------------------------------------------", file = output_file, append = TRUE)
+    cat(error_message, "\n")
+  })
+}
+
+cat("All regressions completed. Results are in", output_file, "\n")
+
+# After all regressions complete
+regression_results_main <- read.csv("regression_results_main.csv", header = TRUE)
+
+prs_results <- regression_results_main[regression_results_main$Predictor == "prs_0.05", ]
+write.csv(prs_results, "prs_results.csv", row.names = FALSE)
+
+prs_results <- readr::read_csv("prs_results.csv")
+
+num_tests <- length(prs_results$P.value)
+
+prs_results$P.value_Bonferroni <- pmin(prs_results$P.value * num_tests, 1)
+prs_results$P.value_FDR <- p.adjust(prs_results$P.value, method = "fdr")
+
+write.csv(prs_results, "prs_results_corrected_new.csv", row.names = FALSE)
