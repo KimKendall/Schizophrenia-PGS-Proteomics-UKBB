@@ -1,0 +1,126 @@
+# Required file - phenotype and protein data with relatedness exclusion and EU ancestry added.
+# Object assumed: eu_analysis_file
+
+library(dplyr)
+library(MatchIt)
+library(tableone)
+
+#### 1. Schizophrenia cases only: descriptive stats ####
+
+# Filtering - exclude those of genetic non-EU ancestry (probability < 0.8; 
+# those without schizophrenia; those who are related - see previous process).
+filtered_eu_scz <- eu_analysis_file %>%
+  filter(EUR >= 0.8, scz_binary == 1, related_exclude != 1)
+
+print(paste("Remaining rows (schizophrenia cases):", nrow(filtered_eu_scz)))
+
+# Demographic Information
+# Count Females (sex = 0)
+count_female <- sum(filtered_eu_scz$sex == 0, na.rm = TRUE)
+
+# Count Males (sex = 1)
+count_male <- sum(filtered_eu_scz$sex == 1, na.rm = TRUE)
+
+# Age Statistics
+mean_age <- mean(filtered_eu_scz$age, na.rm = TRUE)
+sd_age   <- sd(filtered_eu_scz$age, na.rm = TRUE)
+min_age  <- min(filtered_eu_scz$age, na.rm = TRUE)
+max_age  <- max(filtered_eu_scz$age, na.rm = TRUE)
+
+# Print the results clearly
+print(paste("Number of Females:", count_female))
+print(paste("Number of Males:", count_male))
+print(paste("Mean Age:", round(mean_age, 2)))
+print(paste("Standard Deviation of Age:", round(sd_age, 2)))
+print(paste("Age Range:", min_age, "to", max_age))
+
+
+#### 2. Matched comparisons for four proteins (KLK1, ADGRB3, TMPRSS15, CEACAM21) ####
+
+# Filtering - exclude those of genetic non-EU ancestry (probability < 0.8; 
+# those who are related - see previous process). Keep both cases and controls.
+filtered_eu_analysis <- eu_analysis_file %>%
+  filter(EUR >= 0.8, related_exclude != 1)
+
+print(paste("Remaining rows for matching (cases + controls):", nrow(filtered_eu_analysis)))
+
+# Define matching covariates
+match_vars <- c("age", "sex", "ethnicity_grouped", "time_delay", 
+                "smoking_current", "bmi", "no_meds")
+
+# Keep full rows (all columns) but require complete data on matching covariates
+analysis_matched <- filtered_eu_analysis[complete.cases(filtered_eu_analysis[, match_vars]), ]
+
+print(paste("Rows with complete matching covariates:", nrow(analysis_matched)))
+
+# Step 2: Run matching (3 controls per schizophrenia case)
+match_model <- matchit(
+  formula = scz_binary ~ age + sex + ethnicity_grouped + time_delay + 
+    smoking_current + bmi + no_meds,
+  data   = analysis_matched,
+  method = "nearest",
+  ratio  = 3
+)
+
+# Step 3: Extract matched dataset with all original columns
+matched_data_scz <- match.data(match_model, data = analysis_matched)
+
+print(paste("Rows in matched schizophrenia dataset:", nrow(matched_data_scz)))
+
+# Step 4: Baseline table (cases vs controls in matched set)
+table1_scz <- CreateTableOne(
+  vars       = match_vars,
+  strata     = "scz_binary",
+  data       = matched_data_scz,
+  factorVars = c("sex", "ethnicity_grouped", "smoking_current", "no_meds")
+)
+
+print(table1_scz)
+
+# Step 5: Save matched dataset with all variables
+write.csv(matched_data_scz, "matched_data_scz.csv", row.names = FALSE)
+
+
+#### 3. Protein regression models (KLK1, ADGRB3, TMPRSS15, CEACAM21) ####
+
+# KLK1 regression model
+model_klk1 <- lm(klk1 ~ scz_binary, data = matched_data_scz)
+
+# ADGRB3 regression model
+model_adgrb3 <- lm(adgrb3 ~ scz_binary, data = matched_data_scz)
+
+# TMPRSS15 regression model
+model_tmprss15 <- lm(tmprss15 ~ scz_binary, data = matched_data_scz)
+
+# CEACAM21 regression model
+model_ceacam21 <- lm(ceacam21 ~ scz_binary, data = matched_data_scz)
+
+# Collect models into a named list
+models <- list(
+  klk1      = model_klk1,
+  adgrb3    = model_adgrb3,
+  tmprss15  = model_tmprss15,
+  ceacam21  = model_ceacam21
+)
+
+# Extract p-values for scz_binary
+pvals <- sapply(models, function(m) {
+  summary(m)$coefficients["scz_binary", "Pr(>|t|)"]
+})
+
+# FDR correction
+pvals_fdr <- p.adjust(pvals, method = "fdr")
+print(pvals_fdr)
+
+# Create results data frame
+results_scz <- data.frame(
+  protein = names(models),
+  beta    = sapply(models, function(m) summary(m)$coefficients["scz_binary", "Estimate"]),
+  se      = sapply(models, function(m) summary(m)$coefficients["scz_binary", "Std. Error"]),
+  p       = pvals,
+  p_fdr   = pvals_fdr,
+  row.names = NULL
+)
+
+# Write to CSV
+write.csv(results_scz, "secondary_regression_results_scz.csv", row.names = FALSE)
