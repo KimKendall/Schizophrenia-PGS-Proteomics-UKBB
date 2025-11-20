@@ -1,112 +1,100 @@
----
-title: "Data Prep - Relatedness"
-author: "Kimberley Kendall"
-date: "2025-11-12"
----
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
-## Data Prep - Relatedness
-
-```{r}
-# Load the data.table library
 library(data.table)
 
-# Configuration
-kinship_file <- "ukb_rel.dat"
-output_file <- "individuals_to_remove_datatable.txt"
 kinship_threshold <- 0.0442
 
-# Load and Filter Data
-message(paste("Loading", kinship_file, "..."))
+# rel_data and eu_analysis_file assumed already loaded
 
-# Use fread() for fast parallel reading
-rel_data <- fread(
-  kinship_file,
-  col.names = c("ID1", "ID2", "HetHet", "IBS0", "Kinship")
-)
+rel_dt <- as.data.table(rel_data)
 
-# Filter for pairs above the kinship threshold
-# data.table syntax: DT[filter_condition]
-remaining_pairs <- rel_data[Kinship > kinship_threshold]
+analytic_ids <- unique(as.numeric(eu_analysis_file$eid_james))
 
-message(paste("Found", nrow(remaining_pairs), "pairs with Kinship >", kinship_threshold))
+pheno_dt <- as.data.table(eu_analysis_file)[, .(
+  ID = as.numeric(eid_james),
+  any_psychosis = any_psychosis
+)]
+pheno_dt[is.na(any_psychosis), any_psychosis := 0]
 
-# Run Greedy Algorithm
-# Create an empty vector to store the IDs we want to remove
+# 1. restrict to kinship > threshold and within-cohort pairs
+remaining_pairs <- rel_dt[Kinship > kinship_threshold]
+
+pairs_within_analytic <- remaining_pairs[
+  ID1 %in% analytic_ids & ID2 %in% analytic_ids
+]
+
+# ensure numeric IDs
+pairs_within_analytic[, `:=`(
+  ID1 = as.numeric(ID1),
+  ID2 = as.numeric(ID2)
+)]
+
+cat("Number of kinship >", kinship_threshold,
+    "pairs with BOTH in proteomics cohort:", nrow(pairs_within_analytic), "\n")
+
+# 2. SAFE GREEDY PRUNING LOOP WITH CHECKPOINTS
+pairs_dt <- copy(pairs_within_analytic)
+setkey(pairs_dt, ID1, ID2)
+
 individuals_to_remove <- c()
 
-message("Starting greedy removal algorithm...")
+checkpoint_file <- "individuals_to_remove_partial.txt"
+backup_every <- 100
 
-# Set keys for faster subsetting (optional but good practice)
-setkey(remaining_pairs, ID1, ID2)
+# resume if checkpoint exists
+if (file.exists(checkpoint_file)) {
+  message("Found existing checkpoint. Resuming...")
+  individuals_to_remove <- scan(checkpoint_file, what = numeric())
+  pairs_dt <- pairs_dt[!(ID1 %in% individuals_to_remove | ID2 %in% individuals_to_remove)]
+}
 
-while (nrow(remaining_pairs) > 0) {
-    
-  # Count occurrences of all IDs
-  # 1. Melt the table to long format (all IDs in one column)
-  # 2. Count occurrences (.N) by ID
-  # 3. Order by count (N) descending
-  id_counts <- melt(remaining_pairs, measure.vars = c("ID1", "ID2"), value.name = "ID")[, .N, by = ID][order(-N)]
+iteration <- length(individuals_to_remove)
+
+while (nrow(pairs_dt) > 0) {
   
-  # If no counts, we are done
-  if (nrow(id_counts) == 0) {
-    break
+  iteration <- iteration + 1
+  
+  # count occurrences
+  id_counts <- melt(
+    pairs_dt,
+    measure.vars = c("ID1", "ID2"),
+    value.name = "ID"
+  )[, .N, by = ID]
+  
+  if (nrow(id_counts) == 0) break
+  
+  # make sure ID is numeric to match pheno_dt
+  id_counts[, ID := as.numeric(ID)]
+  
+  # merge psychosis info
+  id_counts <- merge(id_counts, pheno_dt, by = "ID", all.x = TRUE)
+  id_counts[is.na(any_psychosis), any_psychosis := 0]
+  id_counts[, is_case := as.integer(any_psychosis == 1)]
+  
+  # prefer to remove non-cases
+  candidates <- id_counts[is_case == 0]
+  if (nrow(candidates) == 0) {
+    candidates <- id_counts  # only cases left
   }
   
-  # Get the ID with the highest count
-  id_to_remove <- id_counts[1, ID]
+  setorder(candidates, -N)
+  id_to_remove <- candidates[1, ID]
   
-  # Add this ID to our removal list
   individuals_to_remove <- c(individuals_to_remove, id_to_remove)
   
-  # Efficiently filter out all pairs involving this ID
-  # This is the key step that is much faster in data.table
-  remaining_pairs <- remaining_pairs[ID1 != id_to_remove & ID2 != id_to_remove]
+  pairs_dt <- pairs_dt[ID1 != id_to_remove & ID2 != id_to_remove]
   
-  # Optional: Print progress every 1000 removals
-  if (length(individuals_to_remove) %% 1000 == 0) {
-    message(paste("... Removed", length(individuals_to_remove), "individuals"))
+  if (iteration %% backup_every == 0) {
+    writeLines(as.character(individuals_to_remove), checkpoint_file)
+    message("Checkpoint written after ", iteration, " removals.")
   }
 }
 
-message(paste("Algorithm complete. Identified", length(individuals_to_remove), "individuals to remove."))
+# final write
+writeLines(as.character(individuals_to_remove), checkpoint_file)
+message("Final checkpoint written to ", checkpoint_file)
 
-# Save Output File
-# Create the final data.table in (FID, IID) format
-output_dt <- data.table(
-  FID = individuals_to_remove,
-  IID = individuals_to_remove
-)
+# 3. inspect removals
+removal_dt <- data.table(ID = individuals_to_remove)
+removal_dt <- merge(removal_dt, pheno_dt, by = "ID", all.x = TRUE)
 
-# Use fwrite() for fast parallel writing
-fwrite(
-  output_dt,
-  file = output_file,
-  sep = "\t",          # Use a tab separator
-  col.names = FALSE,   # No header
-  quote = FALSE        # No quotes
-)
-
-message(paste("Removal list saved to", output_file))
-
-# Save Output File
-# Create the final data.table in (FID, IID) format
-output_dt <- data.table(
-  FID = individuals_to_remove,
-  IID = individuals_to_remove
-)
-
-# Use fwrite() for fast parallel writing
-fwrite(
-  output_dt,
-  file = output_file,
-  sep = "\t",          # Use a tab separator
-  col.names = FALSE,   # No header
-  quote = FALSE        # No quotes
-)
-
-message(paste("Removal list saved to", output_file))
-```
+cat("Removal breakdown (0 = no psychosis, 1 = psychosis):\n")
+print(table(removal_dt$any_psychosis, useNA = "ifany"))
