@@ -6,8 +6,13 @@ output: html_document
 ---
 
 ## Antipsychotic analyses
+# Filtering - keep EUR ancestry (EUR >= 0.8), and exclude related individuals (related_exclude == 1).
+filtered_eu_psychosis <- eu_analysis_file %>%
+  filter(EUR >= 0.8, related_exclude != 1)
 
-```{r}
+
+
+
 age <- analysis_file_plusmeds$age
 sex <- analysis_file_plusmeds$sex
 tmprss15 <- analysis_file_plusmeds$tmprss15
