@@ -1,0 +1,531 @@
+---
+title: "Medications"
+author: "Kimberley Kendall"
+date: "2025-07-30"
+output: html_document
+---
+
+## Medications
+
+```{r reduce size of medications file}
+# Merge in to medication file ID column from analysis file to reduce the data frame size (to just participants needed)
+medications <- medications %>%
+  rename(eid_james = eid)
+
+# Merge 'analysis_file_filtered1' into 'medications' using inner_join
+# This will keep only rows where eid_james matches in both data frames.
+merged_data_dplyr_inner <- medications %>%
+  inner_join(analysis_file_filtered1, by = "eid_james")
+
+write.csv(merged_data_dplyr_inner, "medications_reduced.csv", row.names = FALSE)
+
+# Inadvertently added to medications all the columns from analysis file! Remove them
+
+# Check if the range of columns to remove is valid
+if (20 > ncol(medications_reduced) || 2189 > ncol(medications_reduced)) {
+  warning("The specified column range (20-2189) might exceed the number of columns in 'medications_reduced'.")
+  # Adjust the upper bound if it's out of range
+  cols_to_remove_end <- min(2189, ncol(medications_reduced))
+  cols_to_remove_start <- min(20, cols_to_remove_end) # Ensure start is not greater than end
+} else {
+  cols_to_remove_start <- 20
+  cols_to_remove_end <- 2189
+}
+
+# Remove columns using negative indexing
+medications_reduced_cleaned_baseR <- medications_reduced[, -c(cols_to_remove_start:cols_to_remove_end)]
+
+write.csv(medications_reduced_cleaned_baseR, "medications_proteomics.csv", row.names = FALSE)
+```
+
+```{r antipsychotic counts}
+
+# Ensure medication columns are character
+for (i in 2:19) {
+  medications_proteomics[[i]] <- as.character(medications_proteomics[[i]])
+}
+
+# Define the list of medications to count
+medication_list <- c(
+  "prochlorperazine", "olanzapine", "stemetil 5mg tablet", "quetiapine",
+  "risperidone", "chlorpromazine", "buccastem 3mg tablet",
+  "amitriptyline hydrochloride+perphenazine 10mg/2mg tablet",
+  "trifluoperazine", "amisulpride", "sulpiride", "seroquel 25mg tablet",
+  "haloperidol", "aripiprazole", "stelazine 1mg tablet",
+  "depixol 3mg tablet", "flupentixol", "clozapine",
+  "risperdal 0.5mg tablet", "promazine",
+  "modecate 12.5mg/0.5ml oily injection", "fluanxol 500micrograms tablet",
+  "flupenthixol", "zyprexa 2.5mg tablet", "clopixol 2mg tablet",
+  "largactil 10mg tablet", "zuclopenthixol", "abilify 5mg tablet",
+  "fluphenazine", "haldol 5mg tablet", "serenace 500micrograms capsule",
+  "piportil depot 50mg/1ml oily injection", "clozaril 25mg tablet",
+  "perphenazine", "cpz - chlorpromazine", "levomepromazine",
+  "pericyazine", "dolmatil 200mg tablet", "fentazin 2mg tablet",
+  "fluphenazine decanoate", "benperidol", "pimozide",
+  "zaponex 25mg tablet", "zotepine", "denzapine 25mg tablet",
+  "methotrimeprazine", "neulactil 2.5mg tablet", "sulpitil 200mg tablet",
+  "thioridazine", "tranylcypromine+trifluoperazine 10mg/1mg tablet",
+  "decazate 25mg/1ml oily injection", "moditen enanthate 25mg/ml injection",
+  "chloractil 25mg tablet", "domical 10mg tablet",
+  "dozic 1mg/ml oral liquid",
+  "fluphenazine hydrochloride+nortriptyline 1.5mg/30mg tablet",
+  "fluspirilene", "moditen 1mg tablet", "oxypertine", "pipothiazine",
+  "proziere 5mg tablet", "rauwolfia alkaloids 2mg tablet", "sertindole",
+  "trifluperidol"
+)
+
+# Get the names of the columns to process (columns 2 to 19)
+column_names_to_process <- names(medications_proteomics)[2:19]
+
+# Initialise an empty matrix to store the counts
+# Rows will be medications, columns will be the data frame columns
+medication_counts_matrix <- matrix(
+  0,
+  nrow = length(medication_list),
+  ncol = length(column_names_to_process),
+  dimnames = list(medication_list, column_names_to_process)
+)
+
+# Loop through each specified column and count medication occurrences
+for (col_name in column_names_to_process) {
+  # Get the data for the current column
+  current_column_data <- medications_proteomics[[col_name]]
+
+  # Loop through each medication in the list
+  for (med_name in medication_list) {
+    # Count occurrences (case-sensitive by default, adjust if needed)
+    # na.rm = TRUE handles potential NA values in the column
+    count <- sum(current_column_data == med_name, na.rm = TRUE)
+
+    # Store the count in the matrix
+    medication_counts_matrix[med_name, col_name] <- count
+  }
+}
+
+# Convert the matrix to a data frame for a table-like output
+medication_counts_table <- as.data.frame(medication_counts_matrix)
+
+write.csv(medication_counts_table, "medication_counts.csv", row.names = TRUE)
+
+```
+
+```{r}
+# List of antipsychotics to check for
+antipsychotics_list <- c(
+    "prochlorperazine",
+    "olanzapine",
+    "risperidone",
+    "quetiapine",
+    "stemetil 5mg tablet",
+    "chlorpromazine",
+    "amitriptyline hydrochloride+perphenazine 10mg/2mg tablet",
+    "amisulpride",
+    "trifluoperazine",
+    "buccastem 3mg tablet",
+    "aripiprazole",
+    "sulpiride",
+    "fluanxol 500micrograms tablet",
+    "flupentixol",
+    "haloperidol",
+    "risperdal 0.5mg tablet",
+    "seroquel 25mg tablet",
+    "stelazine 1mg tablet",
+    "zyprexa 2.5mg tablet",
+    "clozapine",
+    "promazine",
+    "depixol 3mg tablet",
+    "flupenthixol",
+    "piportil depot 50mg/1ml oily injection",
+    "clozaril 25mg tablet",
+    "clopixol 2mg tablet",
+    "serenace 500micrograms capsule",
+    "perphenazine",
+    "levomepromazine",
+    "modecate 12.5mg/0.5ml oily injection",
+    "largactil 10mg tablet",
+    "zuclopenthixol",
+    "abilify 5mg tablet",
+    "fluphenazine",
+    "pericyazine",
+    "denzapine 25mg tablet"
+)
+
+# Function to create a new variable for a given antipsychotic
+create_antipsychotic_variable <- function(data, ap_name) {
+  # Generate a clean, valid column name for the new variable
+  # Replaces non-alphanumeric characters with underscores and appends '_present'
+  new_col_name <- tolower(ap_name) %>%
+    str_replace_all("[^a-z0-9]", "_") %>% # Replace non-alphanumeric with _
+    str_replace_all("__+", "_") %>%       # Replace multiple underscores with single
+    str_replace_all("^_|_$", "") %>%      # Remove leading/trailing underscores
+    paste0("_present")                    # Append '_present'
+
+  # Use dplyr's rowwise() to apply the logic row by row
+  data <- data %>%
+    rowwise() %>% # This tells dplyr to perform operations row-by-row
+    mutate(
+      !!new_col_name := { # Create the new column with the generated name
+        # Select columns 2 to 19 for the current row.
+        # c_across() is used within rowwise() to select values from multiple columns.
+        # Ensure your actual data frame has at least 19 columns.
+        cols_to_check <- c_across(2:19)
+
+        # Check if all selected columns for the current row are NA
+        if (all(is.na(cols_to_check))) {
+          NA_real_ # If all are NA, the new variable is NA (numeric type)
+        } else {
+          # Convert relevant columns to character and then to lowercase for case-insensitive matching
+          # grepl() searches for the pattern (ap_name) in the text.
+          # fixed = TRUE ensures an exact string match (no regular expressions).
+          # na.rm = TRUE ensures that NA values in cols_to_check do not cause the any() function to return NA.
+          any_match <- any(
+            grepl(
+              pattern = ap_name,
+              x = tolower(as.character(cols_to_check)),
+              fixed = TRUE
+            ),
+            na.rm = TRUE
+          )
+          # Assign 1 if a match is found, otherwise 0
+          if (any_match) 1 else 0
+        }
+      }
+    ) %>%
+    ungroup() # Important: Always ungroup after using rowwise() to revert to normal data frame operations
+  return(data)
+}
+
+# Loop through each antipsychotic in the list and create its corresponding variable
+for (ap in antipsychotics_list) {
+  medications_proteomics <- create_antipsychotic_variable(medications_proteomics, ap)
+}
+
+write.csv(medications_proteomics, "medications_proteomics1.csv", row.names = FALSE)
+
+# Subset the data frame to include only columns 20 to 55
+selected_columns_base <- medications_proteomics1[, 20:55]
+
+# Get the column names for the selected range
+column_names <- names(selected_columns_base)
+
+# Initialize a named vector to store the counts
+count_of_ones_per_column_base <- numeric(length(column_names))
+names(count_of_ones_per_column_base) <- column_names
+
+# Loop through each selected column and count the '1's
+for (col_name in column_names) {
+  count_of_ones_per_column_base[col_name] <- sum(selected_columns_base[[col_name]] == 1, na.rm = TRUE)
+}
+
+# Print the result
+print("Number of times '1' appears per column (Base R):")
+print(count_of_ones_per_column_base)
+
+
+# Promazine numbers and perphenazine numbers are out due to being part of the name of chlorpromazine and amitriptyline + perphenazine. Therefore merge.
+# Create the new variable 'promazine_chlorpromazine'
+medications_proteomics1$promazine_chlorpromazine <- NA
+
+# Condition 1: If either column is 1, new column is 1
+# Use pmax for row-wise maximum, which handles NA correctly for this logic
+# If one is 1 and other is NA, pmax will return 1.
+# If one is 0 and other is 1, pmax will return 1.
+medications_proteomics1$promazine_chlorpromazine <- pmax(
+  medications_proteomics1$chlorpromazine_present,
+  medications_proteomics1$promazine_present,
+  na.rm = FALSE # Keep NA if both are NA, otherwise pmax will return 0 if both are NA
+)
+
+medications_proteomics1$promazine_chlorpromazine <- apply(
+  medications_proteomics1[, c("chlorpromazine_present", "promazine_present")],
+  1, # Apply row-wise
+  function(row_values) {
+    cp <- row_values["chlorpromazine_present"]
+    pp <- row_values["promazine_present"]
+
+    if (is.na(cp) && is.na(pp)) {
+      return(NA)
+    } else if (!is.na(cp) && cp == 1 || !is.na(pp) && pp == 1) {
+      return(1)
+    } else if (!is.na(cp) && cp == 0 && !is.na(pp) && pp == 0) {
+      return(0)
+    } else {
+      # This covers cases like (0, NA), (NA, 0), (1, NA), (NA, 1) etc.
+      # The previous conditions handle (1, NA) and (NA, 1) to be 1.
+      # So, remaining cases are (0, NA) or (NA, 0) which should result in NA based on your rule
+      # "if there is a 1 in promazine_present or chlorpromazine_present - make the value in promazine_chlorpromazine equal 1.
+      # if both columns are NA, make the value in the new column equal NA.
+      # if there is a 0 in both promazine_present and chlorpromazine_present, make the value in the new column equal 0"
+      # This implies if one is 0 and other is NA, the result should be NA.
+      return(NA)
+    }
+  }
+)
+
+promazine_chlorpromazine.count <- table(medications_proteomics1$promazine_chlorpromazine)
+print(promazine_chlorpromazine.count)
+
+
+# Generate the cross-table
+cross_table <- table(medications_proteomics1$promazine_present,
+                     medications_proteomics1$chlorpromazine_present)
+
+# Print the cross-table
+print(cross_table)
+
+medications_proteomics1$perphenazine_combined <- NA
+
+# Condition 1: If either column is 1, new column is 1
+# Use pmax for row-wise maximum, which handles NA correctly for this logic
+# If one is 1 and other is NA, pmax will return 1.
+# If one is 0 and other is 1, pmax will return 1.
+medications_proteomics1$perphenazine_combined <- pmax(
+  medications_proteomics1$perphenazine_present,
+  medications_proteomics1$amitriptyline_hydrochloride_perphenazine_10mg_2mg_tablet_present,
+  na.rm = FALSE # Keep NA if both are NA, otherwise pmax will return 0 if both are NA
+)
+
+medications_proteomics1$perphenazine_combined <- apply(
+  medications_proteomics1[, c("perphenazine_present", "amitriptyline_hydrochloride_perphenazine_10mg_2mg_tablet_present")],
+  1, # Apply row-wise
+  function(row_values) {
+    cp <- row_values["perphenazine_present"]
+    pp <- row_values["amitriptyline_hydrochloride_perphenazine_10mg_2mg_tablet_present"]
+
+    if (is.na(cp) && is.na(pp)) {
+      return(NA)
+    } else if (!is.na(cp) && cp == 1 || !is.na(pp) && pp == 1) {
+      return(1)
+    } else if (!is.na(cp) && cp == 0 && !is.na(pp) && pp == 0) {
+      return(0)
+    } else {
+      # This covers cases like (0, NA), (NA, 0), (1, NA), (NA, 1) etc.
+      # The previous conditions handle (1, NA) and (NA, 1) to be 1.
+      # So, remaining cases are (0, NA) or (NA, 0) which should result in NA based on your rule
+      # "if there is a 1 in promazine_present or chlorpromazine_present - make the value in promazine_chlorpromazine equal 1.
+      # if both columns are NA, make the value in the new column equal NA.
+      # if there is a 0 in both promazine_present and chlorpromazine_present, make the value in the new column equal 0"
+      # This implies if one is 0 and other is NA, the result should be NA.
+      return(NA)
+    }
+  }
+)
+
+perphenazine_combined.count <- table(medications_proteomics1$perphenazine_combined)
+print(perphenazine_combined.count)
+
+
+# Generate the cross-table
+cross_table <- table(medications_proteomics1$perphenazine_present,
+                     medications_proteomics1$amitriptyline_hydrochloride_perphenazine_10mg_2mg_tablet_present)
+
+# Print the cross-table
+print(cross_table)
+
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(promazine_chlorpromazine_combined = promazine_chlorpromazine)
+
+
+write.csv(medications_proteomics1, "medications_proteomics1.csv", row.names = FALSE)
+```
+
+```{r tidy up}
+
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(prochlorperazine = prochlorperazine_present)
+
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(olanzapine = olanzapine_present)
+
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(risperidone = risperidone_present)
+
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(quetiapine = quetiapine_present)
+
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(stemetil = stemetil_5mg_tablet_present)
+
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(amisulpride = amisulpride_present)
+
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(trifluoperazine = trifluoperazine_present)
+
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(buccastem = buccastem_3mg_tablet_present)
+
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(aripiprazole = aripiprazole_present)
+   
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(sulpiride = sulpiride_present)    
+
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(fluanxol = fluanxol_500micrograms_tablet_present)
+                                  
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(flupentixol = flupenthixol_present)
+   
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(haloperidol = haloperidol_present)                                      
+         
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(risperdal = risperdal_0_5mg_tablet_present)                                    
+      
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(seroquel = seroquel_25mg_tablet_present)                                
+                                       
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(stelazine = stelazine_1mg_tablet_present)    
+                     
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(zyprexa = zyprexa_2_5mg_tablet_present)    
+
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(clozapine = clozapine_present)   
+
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(depixol = depixol_3mg_tablet_present)   
+
+medications_proteomics1$flupenthixol_combined <- NA
+
+# Combining flupenthixol columns
+# Condition 1: If either column is 1, new column is 1
+
+medications_proteomics1$flupenthixol_combined <- pmax(
+  medications_proteomics1$flupentixol_present,
+  medications_proteomics1$flupentixol,
+  na.rm = FALSE # Keep NA if both are NA, otherwise pmax will return 0 if both are NA
+)
+
+medications_proteomics1$flupenthixol_combined <- apply(
+  medications_proteomics1[, c("flupentixol_present", "flupentixol")],
+  1, # Apply row-wise
+  function(row_values) {
+    cp <- row_values["flupentixol_present"]
+    pp <- row_values["flupentixol"]
+
+    if (is.na(cp) && is.na(pp)) {
+      return(NA)
+    } else if (!is.na(cp) && cp == 1 || !is.na(pp) && pp == 1) {
+      return(1)
+    } else if (!is.na(cp) && cp == 0 && !is.na(pp) && pp == 0) {
+      return(0)
+    } else {
+      # This covers cases like (0, NA), (NA, 0), (1, NA), (NA, 1) etc.
+      # The previous conditions handle (1, NA) and (NA, 1) to be 1.
+      # So, remaining cases are (0, NA) or (NA, 0) which should result in NA based on your rule
+      # "if there is a 1 in promazine_present or chlorpromazine_present - make the value in promazine_chlorpromazine equal 1.
+      # if both columns are NA, make the value in the new column equal NA.
+      # if there is a 0 in both promazine_present and chlorpromazine_present, make the value in the new column equal 0"
+      # This implies if one is 0 and other is NA, the result should be NA.
+      return(NA)
+    }
+  }
+)
+
+flupenthixol_combined.count <- table(medications_proteomics1$flupenthixol_combined)
+print(flupenthixol_combined.count)
+
+
+# Generate the cross-table
+cross_table <- table(medications_proteomics1$flupentixol_present,
+                     medications_proteomics1$flupentixol)
+
+# Print the cross-table
+print(cross_table)
+
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(piportil_injection = piportil_depot_50mg_1ml_oily_injection_present)
+
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(clozaril = clozaril_25mg_tablet_present)
+
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(clopixol = clopixol_2mg_tablet_present)
+
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(serenace_haloperidol = serenace_500micrograms_capsule_present)
+
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(levomepromazine = levomepromazine_present)
+                                              
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(modecate_injection = modecate_12_5mg_0_5ml_oily_injection_present)
+
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(largactil_chlorpromazine = largactil_10mg_tablet_present)
+   
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(zuclopenthixol = zuclopenthixol_present)
+
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(abilify = abilify_5mg_tablet_present)
+
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(fluphenazine = fluphenazine_present)
+
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(pericyazine = pericyazine_present)
+
+medications_proteomics1 <- medications_proteomics1 %>%
+  rename(denzapine = denzapine_25mg_tablet_present)
+
+# Remove uneeded columns
+medications_proteomics1 <- medications_proteomics1 %>%
+  select(-chlorpromazine_present)
+medications_proteomics1 <- medications_proteomics1 %>%
+  select(-promazine_present)                                
+medications_proteomics1 <- medications_proteomics1 %>%
+  select(-flupentixol_present)   
+medications_proteomics1 <- medications_proteomics1 %>%
+  select(-flupentixol) 
+medications_proteomics1 <- medications_proteomics1 %>%
+  select(-perphenazine_present) 
+medications_proteomics1 <- medications_proteomics1 %>%
+  select(-amitriptyline_hydrochloride_perphenazine_10mg_2mg_tablet_present)    
+                                          
+```
+
+```{r any antipsychotic}
+# Create the new variable 'any_antipsychotic' and initialise it
+medications_proteomics1$any_antipsychotic <- NA
+
+# Loop through each row to apply the logic
+for (i in 1:nrow(medications_proteomics1)) {
+  # Select the relevant columns for the current row
+  relevant_columns <- medications_proteomics1[i, 20:52]
+
+  # Check if all values in the relevant columns are NA
+  if (all(is.na(relevant_columns))) {
+    medications_proteomics1$any_antipsychotic[i] <- NA
+  }
+  # Check if any of the values in the relevant columns is 1
+  else if (any(relevant_columns == 1, na.rm = TRUE)) {
+    medications_proteomics1$any_antipsychotic[i] <- 1
+  }
+  # If none of the above, set to 0 (meaning no 1s and not all NAs)
+  else {
+    medications_proteomics1$any_antipsychotic[i] <- 0
+  }
+}
+
+write.csv(medications_proteomics1, "medications_proteomics1.csv", row.names = FALSE)
+
+```
+
+```{r file merge}
+# Select the required columns from medications_proteomics1:
+medications_subset <- medications_proteomics1 %>%
+  select(eid_james, 20:53)
+
+# Merge the selected columns into analysis_file_filtered1
+#    - `left_join` is used here to keep all rows from analysis_file_filtered1
+#      and add matching rows from medications_subset.
+analysis_file_merged <- analysis_file_filtered1 %>%
+  left_join(medications_subset, by = "eid_james")
+
+write.csv(analysis_file_merged, "analysis_file_plusmeds.csv", row.names = FALSE)
+
+```
