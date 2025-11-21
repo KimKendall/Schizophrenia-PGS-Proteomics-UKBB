@@ -53,8 +53,8 @@ matched_data <- match.data(match_model, data = analysis_matched)
 # Step 4: Baseline table
 library(tableone)
 CreateTableOne(
-  vars = match_vars[-1],  # all matching variables except scz_binary
-  strata = "scz_binary",
+  vars = match_vars[-1],  # all matching variables except any_psychosis
+  strata = "any_psychosis",
   data = matched_data,
   factorVars = c("sex", "ethnicity_grouped", "smoking_current")
 )
