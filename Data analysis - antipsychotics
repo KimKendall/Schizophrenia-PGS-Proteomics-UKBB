@@ -1,0 +1,41 @@
+---
+title: "Antipsychotic analyses"
+author: "Kimberley Kendall"
+date: "2025-07-30"
+output: html_document
+---
+
+## Antipsychotic analyses
+
+```{r}
+age <- analysis_file_plusmeds$age
+sex <- analysis_file_plusmeds$sex
+tmprss15 <- analysis_file_plusmeds$tmprss15
+prs <- analysis_file_plusmeds$prs_0.05
+timedelay <- analysis_file_plusmeds$time_delay
+batch <- analysis_file_plusmeds$batch
+bmi <- analysis_file_plusmeds$bmi
+smoking <- analysis_file_plusmeds$smoking_current
+egfr <- analysis_file_plusmeds$egfr
+alt <- analysis_file_plusmeds$alt
+ethnicity <- analysis_file_plusmeds$ethnicity_grouped
+any_antipsychotic <- analysis_file_plusmeds$any_antipsychotic
+
+# Basic regression model (do antipsychotic medications influence TMPRSS15 levels?)
+basic_model <- lm(tmprss15 ~ age + sex + prs + any_antipsychotic, data = analysis_file_plusmeds)
+summary(basic_model)
+
+# Full model
+full_model <- lm(tmprss15 ~ age + sex + timedelay + batch + prs + any_antipsychotic, data = analysis_file_plusmeds)
+summary(full_model)
+
+
+
+
+
+```
+
+
+
+```
+
