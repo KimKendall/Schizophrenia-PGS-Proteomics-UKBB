@@ -7,37 +7,6 @@ output: html_document
 
 ## Medications
 
-```{r reduce size of medications file}
-# Merge in to medication file ID column from analysis file to reduce the data frame size (to just participants needed)
-medications <- medications %>%
-  rename(eid_james = eid)
-
-# Merge 'analysis_file_filtered1' into 'medications' using inner_join
-# This will keep only rows where eid_james matches in both data frames.
-merged_data_dplyr_inner <- medications %>%
-  inner_join(analysis_file_filtered1, by = "eid_james")
-
-write.csv(merged_data_dplyr_inner, "medications_reduced.csv", row.names = FALSE)
-
-# Inadvertently added to medications all the columns from analysis file! Remove them
-
-# Check if the range of columns to remove is valid
-if (20 > ncol(medications_reduced) || 2189 > ncol(medications_reduced)) {
-  warning("The specified column range (20-2189) might exceed the number of columns in 'medications_reduced'.")
-  # Adjust the upper bound if it's out of range
-  cols_to_remove_end <- min(2189, ncol(medications_reduced))
-  cols_to_remove_start <- min(20, cols_to_remove_end) # Ensure start is not greater than end
-} else {
-  cols_to_remove_start <- 20
-  cols_to_remove_end <- 2189
-}
-
-# Remove columns using negative indexing
-medications_reduced_cleaned_baseR <- medications_reduced[, -c(cols_to_remove_start:cols_to_remove_end)]
-
-write.csv(medications_reduced_cleaned_baseR, "medications_proteomics.csv", row.names = FALSE)
-```
-
 ```{r antipsychotic counts}
 
 # Ensure medication columns are character
@@ -515,17 +484,4 @@ write.csv(medications_proteomics1, "medications_proteomics1.csv", row.names = FA
 
 ```
 
-```{r file merge}
-# Select the required columns from medications_proteomics1:
-medications_subset <- medications_proteomics1 %>%
-  select(eid_james, 20:53)
 
-# Merge the selected columns into analysis_file_filtered1
-#    - `left_join` is used here to keep all rows from analysis_file_filtered1
-#      and add matching rows from medications_subset.
-analysis_file_merged <- analysis_file_filtered1 %>%
-  left_join(medications_subset, by = "eid_james")
-
-write.csv(analysis_file_merged, "analysis_file_plusmeds.csv", row.names = FALSE)
-
-```
