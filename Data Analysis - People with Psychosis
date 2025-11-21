@@ -1,147 +1,156 @@
-# Required file - phenotype and protein data with relatedness exclusion and EU ancestry added.
+# Psychosis case-control protein analysis
+# Required object: eu_analysis_file
 
-# Filtering - keep EUR ancestry (EUR >= 0.8), psychosis cases (any_psychosis == 1),
-# and exclude related individuals (related_exclude == 1).
+library(dplyr)
+library(MatchIt)
+library(tableone)
+
+#### 1. Psychosis cases only: descriptive stats ####
+
+# Filter: retain EUR ancestry (>= 0.8), psychosis cases, unrelated
 filtered_eu_psychosis <- eu_analysis_file %>%
-  filter(EUR >= 0.8, any_psychosis == 1, related_exclude != 1)
-print(paste("Remaining rows:", nrow(filtered_eu_psychosis)))
+  filter(
+    EUR >= 0.8,
+    any_psychosis == 1,
+    related_exclude != 1
+  )
 
-# Demographic Information
-# Count Females (sex = 0)
+print(paste("Remaining rows (psychosis cases):", nrow(filtered_eu_psychosis)))
+
+# Sex counts (0 = female, 1 = male)
 count_female <- sum(filtered_eu_psychosis$sex == 0, na.rm = TRUE)
+count_male   <- sum(filtered_eu_psychosis$sex == 1, na.rm = TRUE)
 
-# Count Males (sex = 1)
-count_male <- sum(filtered_eu_psychosis$sex == 1, na.rm = TRUE)
-
-# Age Statistics
+# Age summary
 mean_age <- mean(filtered_eu_psychosis$age, na.rm = TRUE)
-sd_age <- sd(filtered_eu_psychosis$age, na.rm = TRUE)
-min_age <- min(filtered_eu_psychosis$age, na.rm = TRUE)
-max_age <- max(filtered_eu_psychosis$age, na.rm = TRUE)
+sd_age   <- sd(filtered_eu_psychosis$age, na.rm = TRUE)
+min_age  <- min(filtered_eu_psychosis$age, na.rm = TRUE)
+max_age  <- max(filtered_eu_psychosis$age, na.rm = TRUE)
 
-# Print the results clearly
 print(paste("Number of Females:", count_female))
 print(paste("Number of Males:", count_male))
 print(paste("Mean Age:", round(mean_age, 2)))
 print(paste("Standard Deviation of Age:", round(sd_age, 2)))
 print(paste("Age Range:", min_age, "to", max_age))
 
-# Matched comparisons for four proteins
 
-# Filtering - exclude those of genetic non-EU ancestry (probability >= 0.8; those who are related - see previous process).
+#### 2. Matched comparisons for four proteins ####
+# KLK1, ADGRB3, TMPRSS15, CEACAM21
+
+# Filter for matching:
+# - EUR ancestry (>= 0.8)
+# - Unrelated
+# - Psychosis cases (1) and non-psychosis controls (0)
 filtered_eu_analysis <- eu_analysis_file %>%
-  filter(EUR >= 0.8, related_exclude != 1)
-print(paste("Remaining rows:", nrow(filtered_eu_analysis)))
+  filter(
+    EUR >= 0.8,
+    related_exclude != 1,
+    any_psychosis %in% c(0, 1)
+  )
 
-# Define matching variables
-match_vars <- c("age", "sex", "ethnicity_grouped", "time_delay", 
-                "smoking_current", "bmi", "no_meds")
+print(paste("Remaining rows for matching (cases + controls):",
+            nrow(filtered_eu_analysis)))
 
-# Keep full rows (all columns) but filter only based on missingness in match_vars
-analysis_matched <- filtered_eu_analysis[complete.cases(filtered_eu_analysis[, match_vars]), ]
+# Variables to match on (including smoking, BMI, no_meds)
+match_vars <- c(
+  "age",
+  "sex",
+  "ethnicity_grouped",
+  "time_delay",
+  "smoking_current",
+  "bmi",
+  "no_meds"
+)
 
-# Step 2: Run matching
-library(MatchIt)
+# Require complete data for all matching covariates
+analysis_matched <- filtered_eu_analysis[
+  complete.cases(filtered_eu_analysis[, match_vars]),
+]
+
+print(paste("Rows with complete matching covariates:",
+            nrow(analysis_matched)))
+
+# Nearest neighbour matching: 3 controls per psychosis case
 match_model <- matchit(
-  formula = any_psychosis ~ age + sex + ethnicity_grouped + time_delay,
-  data = analysis_matched,
-  method = "nearest",
-  ratio = 3
+  formula = any_psychosis ~ age + sex + ethnicity_grouped + time_delay +
+    smoking_current + bmi + no_meds,
+  data    = analysis_matched,
+  method  = "nearest",
+  ratio   = 3
 )
-# Step 3: Extract matched dataset with all original columns
-matched_data <- match.data(match_model, data = analysis_matched)
 
-# Step 4: Baseline table
-library(tableone)
-CreateTableOne(
-  vars = match_vars,      # all matching variables
-  strata = "any_psychosis",
-  data = matched_data,
-  factorVars = c("sex", "ethnicity_grouped")
+# Extract matched dataset with all original columns
+matched_data_psychosis <- match.data(match_model, data = analysis_matched)
+
+print(paste("Rows in matched psychosis dataset:",
+            nrow(matched_data_psychosis)))
+print("Number of cases and controls in matched data:")
+print(table(matched_data_psychosis$any_psychosis))
+
+# Baseline table (cases vs controls in matched set)
+table1_psychosis <- CreateTableOne(
+  vars       = match_vars,
+  strata     = "any_psychosis",
+  data       = matched_data_psychosis,
+  factorVars = c("sex", "ethnicity_grouped", "smoking_current", "no_meds")
 )
-# Step 5: Save matched dataset with all variables
-write.csv(matched_data, "matched_data.csv", row.names = FALSE)
 
-# klk1 regression model
-model_klk1 <- lm(klk1 ~ any_psychosis, data = matched_data)
+print(table1_psychosis)
 
-# adgrb3 regression model
-model_adgrb3 <- lm(adgrb3 ~ any_psychosis, data = matched_data)
+# Save matched dataset
+write.csv(matched_data_psychosis, "matched_data_psychosis.csv", row.names = FALSE)
 
-# tmprss15 regression model
-model_tmprss15 <- lm(tmprss15 ~ any_psychosis, data = matched_data)
 
-# ceacam21 regression model
-model_ceacam21 <- lm(ceacam21 ~ any_psychosis, data = matched_data)
+#### 3. Protein regression models (KLK1, ADGRB3, TMPRSS15, CEACAM21) ####
+# Unadjusted models on the matched set: protein ~ any_psychosis
+
+# KLK1 regression model
+model_klk1 <- lm(klk1 ~ any_psychosis, data = matched_data_psychosis)
+
+# ADGRB3 regression model
+model_adgrb3 <- lm(adgrb3 ~ any_psychosis, data = matched_data_psychosis)
+
+# TMPRSS15 regression model
+model_tmprss15 <- lm(tmprss15 ~ any_psychosis, data = matched_data_psychosis)
+
+# CEACAM21 regression model
+model_ceacam21 <- lm(ceacam21 ~ any_psychosis, data = matched_data_psychosis)
 
 # Collect models into a named list
 models <- list(
-  klk1 = model_klk1,
-  adgrb3 = model_adgrb3,
-  tmprss15 = model_tmprss15,
-  ceacam21 = model_ceacam21
+  klk1      = model_klk1,
+  adgrb3    = model_adgrb3,
+  tmprss15  = model_tmprss15,
+  ceacam21  = model_ceacam21
 )
 
-# Extract p-values
+# Extract p-values for any_psychosis
 pvals <- sapply(models, function(m) {
   summary(m)$coefficients["any_psychosis", "Pr(>|t|)"]
 })
 
 # FDR correction
 pvals_fdr <- p.adjust(pvals, method = "fdr")
-pvals_fdr
+print("FDR-adjusted p-values:")
+print(pvals_fdr)
 
 # Create results data frame
-results <- data.frame(
+results_psychosis <- data.frame(
   protein = names(models),
-  beta = sapply(models, function(m) summary(m)$coefficients["any_psychosis", "Estimate"]),
-  se = sapply(models, function(m) summary(m)$coefficients["any_psychosis", "Std. Error"]),
-  p = pvals,
-  p_fdr = pvals_fdr,
+  beta    = sapply(models, function(m)
+    summary(m)$coefficients["any_psychosis", "Estimate"]),
+  se      = sapply(models, function(m)
+    summary(m)$coefficients["any_psychosis", "Std. Error"]),
+  p       = pvals,
+  p_fdr   = pvals_fdr,
   row.names = NULL
 )
 
-# Write to CSV
-write.csv(results, "secondary_regression_results.csv", row.names = FALSE)
-
-# klk1 regression model
-model_klk1 <- lm(klk1 ~ any_psychosis + bmi + smoking_current + no_meds, data = matched_data)
-
-# adgrb3 regression model
-model_adgrb3 <- lm(adgrb3 ~ any_psychosis + bmi + smoking_current + no_meds, data = matched_data)
-
-# tmprss15 regression model
-model_tmprss15 <- lm(tmprss15 ~ any_psychosis + bmi + smoking_current + no_meds, data = matched_data)
-
-# ceacam21 regression model
-model_ceacam21 <- lm(ceacam21 ~ any_psychosis + bmi + smoking_current + no_meds, data = matched_data)
-
-# Collect models into a named list
-models <- list(
-  klk1 = model_klk1,
-  adgrb3 = model_adgrb3,
-  tmprss15 = model_tmprss15,
-  ceacam21 = model_ceacam21
+# Write results to CSV
+write.csv(
+  results_psychosis,
+  "secondary_regression_results_psychosis.csv",
+  row.names = FALSE
 )
 
-# Extract p-values
-pvals <- sapply(models, function(m) {
-  summary(m)$coefficients["any_psychosis", "Pr(>|t|)"]
-})
 
-# FDR correction
-pvals_fdr <- p.adjust(pvals, method = "fdr")
-pvals_fdr
-
-# Create results data frame
-results <- data.frame(
-  protein = names(models),
-  beta = sapply(models, function(m) summary(m)$coefficients["any_psychosis", "Estimate"]),
-  se = sapply(models, function(m) summary(m)$coefficients["any_psychosis", "Std. Error"]),
-  p = pvals,
-  p_fdr = pvals_fdr,
-  row.names = NULL
-)
-
-# Write to CSV
-write.csv(results, "secondary_regression_results_corr.csv", row.names = FALSE)
