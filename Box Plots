@@ -1,0 +1,93 @@
+############################################################
+## Boxplots for psychosis case–control protein levels
+## Data frame: matched_data_psychosis
+## Proteins:   klk1, adgrb3, ceacam21, tmprss15
+## Status:     any_psychosis (0 = control, 1 = psychosis)
+############################################################
+
+## Load required packages
+## If needed, uncomment the install lines once per environment:
+# install.packages("ggplot2")
+# install.packages("gridExtra")
+
+library(ggplot2)
+library(gridExtra)
+
+## 1. Create a clean group factor for plotting
+matched_data_psychosis$group <- factor(
+  matched_data_psychosis$any_psychosis,
+  levels = c(0, 1),
+  labels = c("Control", "Psychosis")
+)
+
+## 2. Define a simple plotting theme (optional but tidy)
+base_theme <- theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 11),
+    axis.title = element_text(size = 10),
+    axis.text = element_text(size = 9)
+  )
+
+## 3. Individual boxplots for each protein (raw NPX values)
+
+# KLK1
+p_klk1 <- ggplot(matched_data_psychosis,
+                 aes(x = group, y = klk1)) +
+  geom_boxplot(outlier.alpha = 0.4) +
+  base_theme +
+  labs(
+    x = "Group",
+    y = "KLK1 NPX",
+    title = "KLK1"
+  )
+
+# ADGRB3
+p_adgrb3 <- ggplot(matched_data_psychosis,
+                   aes(x = group, y = adgrb3)) +
+  geom_boxplot(outlier.alpha = 0.4) +
+  base_theme +
+  labs(
+    x = "Group",
+    y = "ADGRB3 NPX",
+    title = "ADGRB3"
+  )
+
+# CEACAM21
+p_ceacam21 <- ggplot(matched_data_psychosis,
+                     aes(x = group, y = ceacam21)) +
+  geom_boxplot(outlier.alpha = 0.4) +
+  base_theme +
+  labs(
+    x = "Group",
+    y = "CEACAM21 NPX",
+    title = "CEACAM21"
+  )
+
+# TMPRSS15
+p_tmprss15 <- ggplot(matched_data_psychosis,
+                     aes(x = group, y = tmprss15)) +
+  geom_boxplot(outlier.alpha = 0.4) +
+  base_theme +
+  labs(
+    x = "Group",
+    y = "TMPRSS15 NPX",
+    title = "TMPRSS15"
+  )
+
+## 4. Combine into a 2x2 panel
+combined_protein_boxplots <- grid.arrange(
+  p_klk1, p_adgrb3,
+  p_ceacam21, p_tmprss15,
+  ncol = 2
+)
+
+## 5. Save the combined figure (PNG, high resolution)
+png("supplementary_figure_boxplots_psychosis_controls.png",
+    width = 10, height = 8, units = "in", res = 300)
+grid.arrange(
+  p_klk1, p_adgrb3,
+  p_ceacam21, p_tmprss15,
+  ncol = 2
+)
+dev.off()
+
