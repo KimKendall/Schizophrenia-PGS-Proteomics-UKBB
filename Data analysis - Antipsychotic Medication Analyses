@@ -1,17 +1,8 @@
----
-title: "Antipsychotic analyses"
-author: "Kimberley Kendall"
-date: "2025-07-30"
-output: html_document
----
-
 ## Antipsychotic analyses
+
 # Filtering - keep EUR ancestry (EUR >= 0.8), and exclude related individuals (related_exclude == 1).
 filtered_eu_psychosis <- eu_analysis_file %>%
   filter(EUR >= 0.8, related_exclude != 1)
-
-
-
 
 age <- analysis_file_plusmeds$age
 sex <- analysis_file_plusmeds$sex
@@ -33,13 +24,6 @@ summary(basic_model)
 # Full model
 full_model <- lm(tmprss15 ~ age + sex + timedelay + batch + prs + any_antipsychotic, data = analysis_file_plusmeds)
 summary(full_model)
-
-
-
-
-
-```
-
 
 
 ```
