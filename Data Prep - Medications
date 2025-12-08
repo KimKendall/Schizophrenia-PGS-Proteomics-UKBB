@@ -1,14 +1,6 @@
----
-title: "Medications"
-author: "Kimberley Kendall"
-date: "2025-07-30"
-output: html_document
----
+## Medication data processing
 
-## Medications
-
-```{r antipsychotic counts}
-
+## Antipsychotic counts
 # Ensure medication columns are character
 for (i in 2:19) {
   medications_proteomics[[i]] <- as.character(medications_proteomics[[i]])
@@ -76,9 +68,7 @@ medication_counts_table <- as.data.frame(medication_counts_matrix)
 
 write.csv(medication_counts_table, "medication_counts.csv", row.names = TRUE)
 
-```
 
-```{r}
 # List of antipsychotics to check for
 antipsychotics_list <- c(
     "prochlorperazine",
@@ -190,7 +180,6 @@ for (col_name in column_names) {
 print("Number of times '1' appears per column (Base R):")
 print(count_of_ones_per_column_base)
 
-
 # Promazine numbers and perphenazine numbers are out due to being part of the name of chlorpromazine and amitriptyline + perphenazine. Therefore merge.
 # Create the new variable 'promazine_chlorpromazine'
 medications_proteomics1$promazine_chlorpromazine <- NA
@@ -296,10 +285,8 @@ medications_proteomics1 <- medications_proteomics1 %>%
 
 
 write.csv(medications_proteomics1, "medications_proteomics1.csv", row.names = FALSE)
-```
 
-```{r tidy up}
-
+# Tidy up
 medications_proteomics1 <- medications_proteomics1 %>%
   rename(prochlorperazine = prochlorperazine_present)
 
@@ -455,9 +442,7 @@ medications_proteomics1 <- medications_proteomics1 %>%
 medications_proteomics1 <- medications_proteomics1 %>%
   select(-amitriptyline_hydrochloride_perphenazine_10mg_2mg_tablet_present)    
                                           
-```
 
-```{r any antipsychotic}
 # Create the new variable 'any_antipsychotic' and initialise it
 medications_proteomics1$any_antipsychotic <- NA
 
