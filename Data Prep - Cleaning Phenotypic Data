@@ -1,6 +1,4 @@
-## Cleaning Phenotypic Data, Kimberley Kendall, 6 April 2025
-# This document describes the code used to clean the UKBB phenotypic data for the schizophrenia proteomics project.
-
+## Cleaning Phenotypic Data
 # Read in required data, merge required files (not shown)
 phenodata <- read_csv("phenodata.csv")
 confounder_data <- read_csv("confounder_data.csv")
