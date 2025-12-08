@@ -1,5 +1,4 @@
-## Proteomic Data QC, Kimberley Kendall, 6 April 2025
-This document describes the steps used to conduct quality control checks on the UKBB proteomics data for the UKBB Schizophrenia Proteomics Project. Note that limit of detection steps were run later.
+## Proteomic Data QC (note LOD steps run later)
 
 # Missing Data - percentage per protein
 # Calculate the number of missing values per column for columns 19 to 2941.
