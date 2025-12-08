@@ -1,3 +1,5 @@
+## Relatedness exclusions
+# Load required packages
 library(data.table)
 
 kinship_threshold <- 0.0442
@@ -14,7 +16,7 @@ pheno_dt <- as.data.table(eu_analysis_file)[, .(
 )]
 pheno_dt[is.na(any_psychosis), any_psychosis := 0]
 
-# 1. restrict to kinship > threshold and within-cohort pairs
+# Restrict to kinship > threshold and within-cohort pairs
 remaining_pairs <- rel_dt[Kinship > kinship_threshold]
 
 pairs_within_analytic <- remaining_pairs[
@@ -30,7 +32,7 @@ pairs_within_analytic[, `:=`(
 cat("Number of kinship >", kinship_threshold,
     "pairs with BOTH in proteomics cohort:", nrow(pairs_within_analytic), "\n")
 
-# 2. SAFE GREEDY PRUNING LOOP WITH CHECKPOINTS
+# Safe greedy loop with checkpoints
 pairs_dt <- copy(pairs_within_analytic)
 setkey(pairs_dt, ID1, ID2)
 
@@ -92,7 +94,7 @@ while (nrow(pairs_dt) > 0) {
 writeLines(as.character(individuals_to_remove), checkpoint_file)
 message("Final checkpoint written to ", checkpoint_file)
 
-# 3. inspect removals
+# Inspect removals
 removal_dt <- data.table(ID = individuals_to_remove)
 removal_dt <- merge(removal_dt, pheno_dt, by = "ID", all.x = TRUE)
 
