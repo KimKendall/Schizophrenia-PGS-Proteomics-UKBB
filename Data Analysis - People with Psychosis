@@ -1,12 +1,12 @@
-# Psychosis case-control protein analysis
-# Required object: eu_analysis_file
+## Psychosis case-control protein analysis
+# Data frame: eu_analysis_file
 
+# Load required packages
 library(dplyr)
 library(MatchIt)
 library(tableone)
 
-#### 1. Psychosis cases only: descriptive stats ####
-
+## Psychosis cases only: descriptive stats
 # Filter: retain EUR ancestry (>= 0.8), psychosis cases, unrelated
 filtered_eu_psychosis <- eu_analysis_file %>%
   filter(
@@ -33,14 +33,9 @@ print(paste("Mean Age:", round(mean_age, 2)))
 print(paste("Standard Deviation of Age:", round(sd_age, 2)))
 print(paste("Age Range:", min_age, "to", max_age))
 
+## Matched comparisons for four proteins - KLK1, ADGRB3, TMPRSS15, CEACAM21
 
-#### 2. Matched comparisons for four proteins ####
-# KLK1, ADGRB3, TMPRSS15, CEACAM21
-
-# Filter for matching:
-# - EUR ancestry (>= 0.8)
-# - Unrelated
-# - Psychosis cases (1) and non-psychosis controls (0)
+# Filter for matching: EUR ancestry (>= 0.8), unrelated, psychosis cases (1) and non-psychosis controls (0)
 filtered_eu_analysis <- eu_analysis_file %>%
   filter(
     EUR >= 0.8,
@@ -51,7 +46,7 @@ filtered_eu_analysis <- eu_analysis_file %>%
 print(paste("Remaining rows for matching (cases + controls):",
             nrow(filtered_eu_analysis)))
 
-# Variables to match on (including smoking, BMI, no_meds)
+# Variables to match on:
 match_vars <- c(
   "age",
   "sex",
@@ -100,8 +95,7 @@ print(table1_psychosis)
 # Save matched dataset
 write.csv(matched_data_psychosis, "matched_data_psychosis.csv", row.names = FALSE)
 
-
-#### 3. Protein regression models (KLK1, ADGRB3, TMPRSS15, CEACAM21) ####
+## Protein regression models (KLK1, ADGRB3, TMPRSS15, CEACAM21)
 # Unadjusted models on the matched set: protein ~ any_psychosis
 
 # KLK1 regression model
@@ -116,7 +110,7 @@ model_tmprss15 <- lm(tmprss15 ~ any_psychosis, data = matched_data_psychosis)
 # CEACAM21 regression model
 model_ceacam21 <- lm(ceacam21 ~ any_psychosis, data = matched_data_psychosis)
 
-# Collect models into a named list
+# Collect models into a list
 models <- list(
   klk1      = model_klk1,
   adgrb3    = model_adgrb3,
