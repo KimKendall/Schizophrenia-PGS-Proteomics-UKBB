@@ -1,5 +1,4 @@
-## Additional confounders, Kimberley Kendall, 28 April 2025
-This file describes the steps used to add additional confounders to the association analyses.
+## Additional confounders 
 
 phenoproteinpgs <- read_csv("phenoproteinpgs.csv")
 # Set up variables
