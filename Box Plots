@@ -1,26 +1,23 @@
-############################################################
-## Boxplots for psychosis case–control protein levels
-## Data frame: matched_data_psychosis
-## Proteins:   klk1, adgrb3, ceacam21, tmprss15
-## Status:     any_psychosis (0 = control, 1 = psychosis)
-############################################################
+## R code to make boxplots for psychosis case-control levels
 
-## Load required packages
-## If needed, uncomment the install lines once per environment:
-# install.packages("ggplot2")
-# install.packages("gridExtra")
+# Data frame: matched_data_psychosis
+# Proteins: klk1, adgrb3, ceacam21, tmprss15
+# Case status: any_psychosis (0 = control, 1 = psychosis)
 
+# Load required packages
+install.packages("ggplot2")
+install.packages("gridExtra")
 library(ggplot2)
 library(gridExtra)
 
-## 1. Create a clean group factor for plotting
+## Create clean group factor for plotting
 matched_data_psychosis$group <- factor(
   matched_data_psychosis$any_psychosis,
   levels = c(0, 1),
   labels = c("Control", "Psychosis")
 )
 
-## 2. Define a simple plotting theme (optional but tidy)
+## Plotting theme
 base_theme <- theme_minimal() +
   theme(
     plot.title = element_text(hjust = 0.5, size = 11),
@@ -28,8 +25,7 @@ base_theme <- theme_minimal() +
     axis.text = element_text(size = 9)
   )
 
-## 3. Individual boxplots for each protein (raw NPX values)
-
+## Individual boxplots for each protein (raw NPX values)
 # KLK1
 p_klk1 <- ggplot(matched_data_psychosis,
                  aes(x = group, y = klk1)) +
@@ -74,14 +70,14 @@ p_tmprss15 <- ggplot(matched_data_psychosis,
     title = "TMPRSS15"
   )
 
-## 4. Combine into a 2x2 panel
+## Combine into a 2x2 panel
 combined_protein_boxplots <- grid.arrange(
   p_klk1, p_adgrb3,
   p_ceacam21, p_tmprss15,
   ncol = 2
 )
 
-## 5. Save the combined figure (PNG, high resolution)
+## Save the combined figure (PNG, high resolution)
 png("supplementary_figure_boxplots_psychosis_controls.png",
     width = 10, height = 8, units = "in", res = 300)
 grid.arrange(
