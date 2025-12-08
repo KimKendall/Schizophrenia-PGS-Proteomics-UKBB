@@ -1,4 +1,4 @@
-## Wrangling below lod, Kimberley Kendall, 8 June 2025
+## Wrangling below lod
 # Disable scientific notation
 options(scipen = 999)
 below_lod <- read_csv("below_lod.csv", col_types = cols(...1 = col_skip()))
@@ -19,7 +19,7 @@ names(below_lod)[names(below_lod) == "Protein"] <- "protein"
 names(below_lod)[names(below_lod) == "Below_LOD_Count"] <- "below_lod_count"
 write.csv(below_lod, "below_lod.csv", row.names = FALSE)
 
-# 1. Identify protein columns to remove
+# Identify protein columns to remove
 # Filter below_lod for proteins with > 20% values below LOD
 proteins_to_remove <- below_lod %>%
   filter(percentage_below_lod > 20) %>%
@@ -28,7 +28,7 @@ proteins_to_remove <- below_lod %>%
 cat("\n--- Proteins identified for removal (percentage_below_lod > 20%): ---\n")
 print(proteins_to_remove)
 
-# 2. Remove identified columns from phenoproteinpgs_updated
+# Remove identified columns from phenoproteinpgs_updated
 # Select all columns EXCEPT those in 'proteins_to_remove'
 phenoproteinpgs_filtered <- phenoproteinpgs_updated %>%
   select(-any_of(proteins_to_remove))
