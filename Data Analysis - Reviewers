@@ -1,14 +1,11 @@
-#############################################
-# Schizophrenia case-control protein analysis
-# Required object: eu_analysis_file
-#############################################
-
+## Additional analyses in response to reviewers
+# Data frame: eu_analysis_file
+# Load required packages
 library(dplyr)
 library(MatchIt)
 library(tableone)
 
-#### 1. Schizophrenia cases only: descriptive stats ####
-
+## Schizophrenia cases only: descriptive stats
 # Filter: retain EUR ancestry (>= 0.8), schizophrenia cases, unrelated
 filtered_eu_scz <- eu_analysis_file %>%
   filter(
@@ -35,14 +32,8 @@ print(paste("Mean Age:", round(mean_age, 2)))
 print(paste("Standard Deviation of Age:", round(sd_age, 2)))
 print(paste("Age Range:", min_age, "to", max_age))
 
-
-#### 2. Matched comparisons for four proteins ####
-# KLK1, ADGRB3, TMPRSS15, CEACAM21
-
-# Filter for matching:
-# - EUR ancestry (>= 0.8)
-# - Unrelated
-# - Schizophrenia cases (1) and non-schizophrenia controls (0)
+### Matched comparisons for four proteins - KLK1, ADGRB3, TMPRSS15, CEACAM21
+# Filter for matching: EUR ancestry (>= 0.8), unrelated, schizophrenia cases (1) and non-schizophrenia controls (0)
 filtered_eu_analysis <- eu_analysis_file %>%
   filter(
     EUR >= 0.8,
@@ -102,8 +93,7 @@ print(table1_scz)
 # Save matched dataset
 write.csv(matched_data_scz, "matched_data_scz.csv", row.names = FALSE)
 
-
-#### 3. Protein regression models (KLK1, ADGRB3, TMPRSS15, CEACAM21) ####
+## Protein regression models (KLK1, ADGRB3, TMPRSS15, CEACAM21)
 # Unadjusted models on the matched set: protein ~ scz_binary
 
 # KLK1 regression model
