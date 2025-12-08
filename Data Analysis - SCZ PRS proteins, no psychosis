@@ -1,12 +1,13 @@
+## Primary analysis - SCZ PGS with proteins, no psychosis
 # Required file - phenotype and protein data with relatedness exclusion and EU ancestry added.
+# Load required package
+library(dplyr)
 
-# Filtering - exclude those of genetic non-EU ancestry (probability >= 0.8; those with psychosis; those who are related - see previous process).
+# Filtering - exclude those of genetic non-EU ancestry (probability >= 0.8; those with psychosis; those who are related).
 filtered_eu_analysis <- eu_analysis_file %>%
   filter(EUR >= 0.8, any_psychosis != 1, related_exclude != 1)
 
-# Demographic Information
-library(dplyr)
-
+# Demographic information
 age_summary <- filtered_eu_analysis %>%
   summarise(
     mean_age = mean(age, na.rm = TRUE),
