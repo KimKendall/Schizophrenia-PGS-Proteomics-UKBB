@@ -1,9 +1,9 @@
-# --- FEMALES ONLY: PRS–protein regressions ---
-
+## Repeat of the primary analysis (SCZ PGS and proteins, no psychosis) - females only
+# Load required packages
 library(dplyr)
 library(readr)
 
-# 1. Filter dataset: EU ancestry, no psychosis, unrelated, FEMALES ONLY (sex == 0)
+# Filter dataset: EU ancestry, no psychosis, unrelated, females only (sex == 0)
 filtered_eu_female <- eu_analysis_file %>%
   filter(
     EUR >= 0.8,
@@ -12,7 +12,7 @@ filtered_eu_female <- eu_analysis_file %>%
     sex == 0
   )
 
-# 2. Demographic information (sanity checks)
+# Demographic information
 age_summary_female <- filtered_eu_female %>%
   summarise(
     mean_age = mean(age, na.rm = TRUE),
@@ -27,10 +27,10 @@ sex_summary_female <- table(filtered_eu_female$sex)
 print("Sex coding for FEMALES subset (should be 0 only):")
 print(sex_summary_female)
 
-# 3. Define columns containing protein data
+# Define columns containing protein data
 protein_columns <- 113:2189
 
-# 4. Define predictor variables (sex removed because we’re stratified)
+# Define predictor variables
 predictor_variables <- c(
   "prs_0.05", "age", "age_squared",
   "PC1", "PC2", "PC3", "PC4", "PC5",
@@ -38,7 +38,7 @@ predictor_variables <- c(
   "smoking_current", "no_meds", "egfr", "alt"
 )
 
-# 5. Create the output file for regression results
+# Create the output file for regression results
 output_file <- "regression_results_female.csv"
 
 # Write header
@@ -51,7 +51,7 @@ write.table(
   row.names = FALSE
 )
 
-# 6. Run the regression loop
+# Run the regression loop
 for (protein_col in protein_columns) {
   protein_name <- names(filtered_eu_female)[protein_col]
   formula_str <- paste(protein_name, "~", paste(predictor_variables, collapse = " + "))
@@ -88,9 +88,9 @@ for (protein_col in protein_columns) {
   })
 }
 
-cat("All FEMALE regressions completed. Results are in", output_file, "\n")
+cat("All female regressions completed. Results are in", output_file, "\n")
 
-# 7. Read results back in and extract PRS rows
+# Read results back in and extract PRS rows
 regression_results_female <- read.csv(output_file, header = TRUE)
 
 prs_results_female <- regression_results_female[
@@ -98,7 +98,7 @@ prs_results_female <- regression_results_female[
 
 write.csv(prs_results_female, "prs_results_female.csv", row.names = FALSE)
 
-# 8. Multiple testing correction
+# Multiple testing correction
 prs_results_female <- read_csv("prs_results_female.csv")
 
 num_tests_female <- length(prs_results_female$P.value)
